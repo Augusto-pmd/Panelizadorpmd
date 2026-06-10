@@ -5,6 +5,7 @@ import {
   slugify, parseDxf, dist, projectOnSegment, detectJoints,
   panelizeWall, osbLayoutForPanel, osbPiecesForPanel, packOsbSheets, buildAll,
 } from "./lib/engine";
+import { Card, Btn, ToolButton, IconBtn, Stat, SectionTitle, Chip, Field, NumInput } from "./ui";
 // ---------------- componente principal ----------------
 export default function PanelizadorSF() {
   const [tab, setTab] = useState("plano");
@@ -46,6 +47,69 @@ export default function PanelizadorSF() {
     () => buildAll(walls, openings, roofs, fixtures, ppm, vincha, RULES),
     [walls, openings, roofs, fixtures, ppm, vincha]
   );
+
+  // ================= DESHACER / REHACER (historial de escena) =================
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
+  const sceneSnapRef = useRef(null);
+  const skipHistoryRef = useRef(false);
+
+  useEffect(() => {
+    const snap = JSON.stringify({ walls, openings, roofs, fixtures });
+    if (sceneSnapRef.current === null) { sceneSnapRef.current = snap; return; }
+    if (skipHistoryRef.current) { skipHistoryRef.current = false; sceneSnapRef.current = snap; return; }
+    if (snap !== sceneSnapRef.current) {
+      const prev = sceneSnapRef.current;
+      setHistory((h) => [...h.slice(-60), prev]);
+      setFuture([]);
+      sceneSnapRef.current = snap;
+    }
+  }, [walls, openings, roofs, fixtures]);
+
+  function applyScene(snapStr) {
+    const s = JSON.parse(snapStr);
+    skipHistoryRef.current = true;
+    setWalls(s.walls || []); setOpenings(s.openings || []); setRoofs(s.roofs || []); setFixtures(s.fixtures || []);
+    setPending(null); setPendingRoof(null);
+  }
+  function undo() {
+    if (!history.length) return;
+    const prev = history[history.length - 1];
+    setFuture((f) => [JSON.stringify({ walls, openings, roofs, fixtures }), ...f].slice(0, 60));
+    setHistory((h) => h.slice(0, -1));
+    applyScene(prev);
+  }
+  function redo() {
+    if (!future.length) return;
+    const next = future[0];
+    setHistory((h) => [...h.slice(-60), JSON.stringify({ walls, openings, roofs, fixtures })]);
+    setFuture((f) => f.slice(1));
+    applyScene(next);
+  }
+
+  // ================= ATAJOS DE TECLADO =================
+  const keyHandlerRef = useRef(null);
+  keyHandlerRef.current = (e) => {
+    const tag = (e.target && e.target.tagName) || "";
+    const typing = tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA";
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
+    if (typing) return;
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); return; }
+    if (tab !== "plano") return;
+    const toolKeys = { m: "muro", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
+    const k = e.key.toLowerCase();
+    if (toolKeys[k]) { setMode(toolKeys[k]); setPending(null); setPendingRoof(null); if (k === "c") setCalPts([]); return; }
+    if (e.key === "+" || e.key === "=") { setZoom((z) => Math.min(4, z * 1.25)); return; }
+    if (e.key === "-" || e.key === "_") { setZoom((z) => Math.max(0.4, z / 1.25)); return; }
+    if (e.key === "0") { setZoom(1); setPan({ x: 0, y: 0 }); return; }
+  };
+  useEffect(() => {
+    const fn = (e) => keyHandlerRef.current && keyHandlerRef.current(e);
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, []);
 
   // ================= PERSISTENCIA DE PROYECTOS =================
   useEffect(() => {
@@ -927,185 +991,234 @@ export default function PanelizadorSF() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink, fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-      {/* header */}
-      <div className="px-4 py-3 flex items-center justify-between" style={{ background: C.chrome, color: "#fff" }}>
-        <div>
-          <div className="text-xs tracking-widest uppercase" style={{ color: "#9DB6D8", letterSpacing: "0.18em" }}>PMD Arquitectura</div>
-          <div className="text-lg font-bold">Panelizador Steel Framing</div>
-        </div>
-        <div className="text-right text-xs" style={{ color: "#9DB6D8", fontFamily: "ui-monospace, monospace" }}>
-          Muro 3×3 m · Techo 6 m · OSB 1,22×2,44
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
+      {/* ===== App shell: top bar + navegación de vistas (sticky) ===== */}
+      <div className="sticky top-0 z-40">
+        <header
+          className="px-4 py-2.5 flex items-center gap-3"
+          style={{ background: C.chrome, color: "#fff", boxShadow: "0 6px 20px rgba(16,32,43,.18)" }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="grid place-items-center rounded-lg font-extrabold"
+              style={{ width: 34, height: 34, background: C.blue, color: "#fff", fontSize: 14, letterSpacing: "-.02em" }}>PMD</div>
+            <div className="leading-tight">
+              <div className="text-[10px] uppercase font-semibold" style={{ color: "#8FA6C9", letterSpacing: ".16em" }}>PMD Arquitectura</div>
+              <div className="text-[15px] font-bold">Panelizador Steel Framing</div>
+            </div>
+          </div>
+          <div className="ml-auto hidden md:flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "#8FA6C9" }}>
+            {["Muro 3×3 m", "Techo 6 m", "OSB 1,22×2,44"].map((s) => (
+              <span key={s} className="px-2 py-1 rounded-md" style={{ background: "rgba(255,255,255,.06)" }}>{s}</span>
+            ))}
+          </div>
+        </header>
 
-      {/* tabs */}
-      <div className="flex" style={{ borderBottom: `2px solid ${C.chrome}` }}>
-        {[
-          ["plano", "Plano"],
-          ["paneles", `Paneles (${result.panels.length + result.roofInfo.reduce((s, r) => s + r.n, 0)})`],
-          ["v3d", "3D"],
-          ["corte", "Corte"],
-          ["fabricar", "Fabricación"],
-        ].map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className="flex-1 py-2 text-sm font-semibold"
-            style={{ background: tab === k ? C.chrome : "transparent", color: tab === k ? "#fff" : C.ink }}
-          >
-            {label}
-          </button>
-        ))}
+        <nav
+          className="px-3 py-2 flex gap-1.5 overflow-x-auto"
+          style={{ background: "rgba(244,245,247,.88)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderBottom: `1px solid ${C.line}` }}
+        >
+          {[
+            ["plano", "Plano", "📐", null],
+            ["paneles", "Paneles", "🧱", result.panels.length + result.roofInfo.reduce((s, r) => s + r.n, 0)],
+            ["v3d", "Vista 3D", "🧊", null],
+            ["corte", "Corte", "✂️", null],
+            ["fabricar", "Fabricación", "🏭", null],
+          ].map(([k, label, icon, badge]) => {
+            const on = tab === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold whitespace-nowrap"
+                style={{ background: on ? C.ink : "#fff", color: on ? "#fff" : C.ink, border: `1px solid ${on ? C.ink : C.line}`, boxShadow: on ? "0 2px 10px rgba(16,32,43,.16)" : "none" }}
+              >
+                <span style={{ fontSize: 14 }}>{icon}</span>
+                {label}
+                {badge != null && (
+                  <span className="text-[11px] font-bold px-1.5 rounded-full" style={{ background: on ? "rgba(255,255,255,.18)" : C.blueSoft, color: on ? "#fff" : C.blueDark }}>{badge}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* ================= TAB PLANO ================= */}
       {tab === "plano" && (
-        <div className="p-3 flex flex-col gap-3">
-          {/* proyectos */}
-          <div className="rounded p-2 flex flex-wrap items-center gap-2 text-sm" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-            <input
-              type="text" placeholder="Nombre del proyecto (ej. Casa Talar)" value={projName}
-              onChange={(e) => setProjName(e.target.value)}
-              className="px-2 py-2 rounded flex-1" style={{ border: "1px solid #CFCDC4", minWidth: 150 }}
-            />
-            <button className="px-3 py-2 rounded font-semibold" style={{ background: C.chrome, color: "#fff" }} onClick={saveProject}>💾 Guardar</button>
+        <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
+          {/* ===== Barra de proyecto ===== */}
+          <Card className="p-2 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 flex-1" style={{ minWidth: 200 }}>
+              <span className="text-base" style={{ color: C.gray }}>🗂️</span>
+              <input
+                type="text" placeholder="Nombre del proyecto (ej. Casa Talar)" value={projName}
+                onChange={(e) => setProjName(e.target.value)}
+                className="px-2.5 py-2 rounded-lg flex-1 text-sm font-medium" style={{ minWidth: 150 }}
+              />
+            </div>
+            <Btn variant="dark" onClick={saveProject} data-tip="Guardar proyecto">💾 Guardar</Btn>
             {savedProjects.length > 0 && (
-              <select className="px-2 py-2 rounded" style={{ border: "1px solid #CFCDC4", maxWidth: 180 }} value="" onChange={(e) => { if (e.target.value) loadProject(e.target.value); }}>
-                <option value="">Abrir proyecto…</option>
+              <select className="px-2.5 py-2 rounded-lg text-sm" style={{ maxWidth: 200 }} value="" onChange={(e) => { if (e.target.value) loadProject(e.target.value); }}>
+                <option value="">📂 Abrir proyecto…</option>
                 {savedProjects.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
               </select>
             )}
             {projName && savedProjects.some((p) => p.slug === slugify(projName)) && (
-              <button className="px-2 py-2 rounded text-xs" style={{ color: C.red, border: `1px solid ${C.red}` }} onClick={() => deleteProject(slugify(projName))}>Borrar</button>
+              <Btn variant="danger" size="sm" onClick={() => deleteProject(slugify(projName))}>Borrar</Btn>
             )}
-            {storageMsg && <span className="text-xs w-full" style={{ color: C.gray }}>{storageMsg}</span>}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "muro")} onClick={() => { setMode("muro"); setPending(null); setPendingRoof(null); }}>✏️ Muro</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "vano")} onClick={() => { setMode("vano"); setPendingRoof(null); }}>▢ Vano</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "techo", C.gray)} onClick={() => { setMode("techo"); setPending(null); }}>⛰ Techo</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "instal", C.elec)} onClick={() => { setMode("instal"); setPending(null); setPendingRoof(null); }}>⚡ Instal.</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "editar", C.green)} onClick={() => { setMode("editar"); setPending(null); setPendingRoof(null); }}>↖ Editar</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "goma", C.red)} onClick={() => { setMode("goma"); setPending(null); setPendingRoof(null); }}>🧽 Goma</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "mover", C.gray)} onClick={() => { setMode("mover"); setPending(null); setPendingRoof(null); }}>✋ Mover</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(mode === "calibrar")} onClick={() => { setMode("calibrar"); setCalPts([]); }}>📏 Calibrar</button>
-            <button className="px-3 py-2 rounded text-sm" style={btn(false)} onClick={() => { setWalls((ws) => ws.slice(0, -1)); setPending(null); }}>↩ Deshacer</button>
-            <button className="px-3 py-2 rounded text-sm" style={btn(false)} onClick={() => { setWalls([]); setOpenings([]); setRoofs([]); setFixtures([]); setPending(null); setPendingRoof(null); }}>🗑 Limpiar</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: C.green, color: "#fff", border: "none" }} onClick={loadExample}>Cargar ejemplo</button>
-          </div>
+            {storageMsg && (
+              <span className="text-xs w-full px-1 py-1 rounded-md fade-in" style={{ color: C.blueDark, background: C.blueSoft }}>{storageMsg}</span>
+            )}
+          </Card>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <label className="px-3 py-2 rounded cursor-pointer" style={{ background: "#fff", border: "1px solid #CFCDC4" }}>
+          {/* ===== Tool dock ===== */}
+          <Card className="p-2.5 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-1 hidden sm:inline" style={{ color: C.gray }}>Dibujar</span>
+            {[
+              { k: "muro", icon: "✏️", label: "Muro", color: C.blue, key: "M" },
+              { k: "vano", icon: "▢", label: "Vano", color: C.orange, key: "V" },
+              { k: "techo", icon: "⛰", label: "Techo", color: C.gray, key: "T" },
+              { k: "instal", icon: "⚡", label: "Instalación", color: C.elec, key: "I" },
+            ].map((t) => (
+              <ToolButton key={t.k} icon={t.icon} label={t.label} active={mode === t.k} color={t.color}
+                hint={`${t.label} · tecla ${t.key}`}
+                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); }} />
+            ))}
+            <div className="w-px h-7 mx-1 hidden sm:block" style={{ background: C.line }} />
+            <span className="text-[10px] font-bold uppercase tracking-wider px-1 hidden sm:inline" style={{ color: C.gray }}>Editar</span>
+            {[
+              { k: "editar", icon: "↖", label: "Editar", color: C.green, key: "E" },
+              { k: "goma", icon: "🧽", label: "Goma", color: C.red, key: "G" },
+              { k: "mover", icon: "✋", label: "Mover", color: C.gray, key: "H" },
+              { k: "calibrar", icon: "📏", label: "Calibrar", color: C.blue, key: "C" },
+            ].map((t) => (
+              <ToolButton key={t.k} icon={t.icon} label={t.label} active={mode === t.k} color={t.color}
+                hint={`${t.label} · tecla ${t.key}`}
+                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); if (t.k === "calibrar") setCalPts([]); }} />
+            ))}
+            <div className="w-px h-7 mx-1 hidden sm:block" style={{ background: C.line }} />
+            <Btn onClick={undo} disabled={!history.length} style={{ opacity: history.length ? 1 : 0.45 }} data-tip="Deshacer · Ctrl+Z">↩</Btn>
+            <Btn onClick={redo} disabled={!future.length} style={{ opacity: future.length ? 1 : 0.45 }} data-tip="Rehacer · Ctrl+Shift+Z">↪</Btn>
+            <Btn variant="danger" onClick={() => { setWalls([]); setOpenings([]); setRoofs([]); setFixtures([]); setPending(null); setPendingRoof(null); }} data-tip="Vaciar el plano">🗑 Limpiar</Btn>
+            <Btn variant="success" onClick={loadExample} className="ml-auto" data-tip="Cargar un proyecto de ejemplo">✨ Ejemplo</Btn>
+          </Card>
+
+          {/* ===== Opciones: importar plano + toggles ===== */}
+          <Card className="p-2.5 flex flex-wrap items-center gap-2.5 text-sm">
+            <label className="rounded-lg cursor-pointer px-3 py-2 font-semibold inline-flex items-center gap-1.5" style={{ background: "#fff", border: `1px solid ${C.line}`, color: C.ink }}>
               📄 Subir plano
               <input type="file" accept="image/*" className="hidden" onChange={loadBg} />
             </label>
-            <label className="px-3 py-2 rounded cursor-pointer font-semibold" style={{ background: "#fff", border: `1px solid ${C.blue}`, color: C.blue }}>
+            <label className="rounded-lg cursor-pointer px-3 py-2 font-semibold inline-flex items-center gap-1.5" style={{ background: C.blueSoft, border: `1px solid transparent`, color: C.blueDark }}>
               📐 Importar DXF
               <input type="file" accept=".dxf" className="hidden" onChange={loadDxf} />
             </label>
             {bg && (
-              <label className="flex items-center gap-2">
-                Opacidad
+              <label className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: C.paper }}>
+                <span style={{ color: C.gray }}>Opacidad plano</span>
                 <input type="range" min="0.1" max="1" step="0.05" value={bgOpacity} onChange={(e) => setBgOpacity(parseFloat(e.target.value))} />
               </label>
             )}
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={vincha} onChange={(e) => setVincha(e.target.checked)} />
-              Viga tubo + murito de carga 0,50 m
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showOsb} onChange={(e) => setShowOsb(e.target.checked)} />
-              Ver placas OSB
-            </label>
-            <div className="flex gap-1 ml-auto">
-              <button className="px-3 py-1 rounded" style={btn(false)} onClick={() => setZoom((z) => Math.min(4, z * 1.25))}>＋</button>
-              <button className="px-3 py-1 rounded" style={btn(false)} onClick={() => setZoom((z) => Math.max(0.4, z / 1.25))}>－</button>
-              <button className="px-3 py-1 rounded text-xs" style={btn(false)} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>⌖</button>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: vincha ? C.blueSoft : C.paper, color: vincha ? C.blueDark : C.gray, border: `1px solid ${vincha ? "transparent" : C.line}` }}>
+                <input type="checkbox" checked={vincha} onChange={(e) => setVincha(e.target.checked)} />
+                Viga tubo + murito 0,50 m
+              </label>
+              <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: showOsb ? C.blueSoft : C.paper, color: showOsb ? C.blueDark : C.gray, border: `1px solid ${showOsb ? "transparent" : C.line}` }}>
+                <input type="checkbox" checked={showOsb} onChange={(e) => setShowOsb(e.target.checked)} />
+                Ver placas OSB
+              </label>
             </div>
-          </div>
+          </Card>
 
           {/* largo exacto del tramo en curso */}
           {mode === "muro" && pending && (
-            <div className="flex flex-wrap gap-2 items-center rounded p-2" style={{ background: "#fff", border: `1px solid ${C.blue}` }}>
-              <span className="text-xs font-semibold" style={{ color: C.blue }}>Largo exacto:</span>
-              <input type="number" inputMode="decimal" step="0.05" placeholder="m" value={exactLen} onChange={(e) => setExactLen(e.target.value)} className="w-20 px-2 py-2 rounded" style={{ border: "1px solid #CFCDC4" }} />
+            <Card className="flex flex-wrap gap-2 items-center p-2.5 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: C.blue }}>Largo exacto</span>
+              <input type="number" inputMode="decimal" step="0.05" placeholder="m" value={exactLen} onChange={(e) => setExactLen(e.target.value)} className="w-24 px-2.5 py-2 rounded-lg text-sm font-mono" />
               {[["→", 1, 0], ["↓", 0, 1], ["←", -1, 0], ["↑", 0, -1]].map(([s, dx, dy]) => (
-                <button key={s} className="px-3 py-2 rounded font-bold" style={btn(false)} onClick={() => addExactWall(dx, dy)}>{s}</button>
+                <Btn key={s} variant="soft" onClick={() => addExactWall(dx, dy)} style={{ fontSize: 16, minWidth: 40 }}>{s}</Btn>
               ))}
-              <button className="px-3 py-2 rounded text-sm font-semibold ml-auto" style={{ background: C.green, color: "#fff" }} onClick={() => { setPending(null); setHover(null); }}>✓ Terminar tramo</button>
-            </div>
+              <Btn variant="success" className="ml-auto" onClick={() => { setPending(null); setHover(null); }}>✓ Terminar tramo</Btn>
+            </Card>
           )}
 
           {/* techo automático sobre la planta */}
           {mode === "techo" && (
-            <div className="flex flex-wrap gap-2 items-center rounded p-2 text-xs" style={{ background: "#fff", border: `1px solid ${C.gray}` }}>
-              <span className="font-semibold">Techo automático:</span>
-              <select value={autoRoof.tipo} onChange={(e) => setAutoRoof({ ...autoRoof, tipo: e.target.value })} className="px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }}>
+            <Card className="flex flex-wrap gap-2.5 items-center p-2.5 text-xs">
+              <span className="font-bold uppercase tracking-wide text-[10px]" style={{ color: C.gray }}>⛰ Techo automático</span>
+              <select value={autoRoof.tipo} onChange={(e) => setAutoRoof({ ...autoRoof, tipo: e.target.value })} className="px-2 py-1.5 rounded-lg">
                 <option value="2aguas-h">2 aguas — cumbrera ↔</option>
                 <option value="2aguas-v">2 aguas — cumbrera ↕</option>
                 <option value="1agua">1 agua</option>
               </select>
-              <label className="flex items-center gap-1">Pend. %
-                <input type="number" inputMode="decimal" value={autoRoof.pendiente} className="w-14 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }} onChange={(e) => setAutoRoof({ ...autoRoof, pendiente: parseFloat(e.target.value) || 0 })} />
+              <label className="flex items-center gap-1.5" style={{ color: C.gray }}>Pend. %
+                <input type="number" inputMode="decimal" value={autoRoof.pendiente} className="w-16 px-2 py-1.5 rounded-lg font-mono" onChange={(e) => setAutoRoof({ ...autoRoof, pendiente: parseFloat(e.target.value) || 0 })} />
               </label>
-              <label className="flex items-center gap-1">Alero m
-                <input type="number" step="0.1" inputMode="decimal" value={autoRoof.alero} className="w-14 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }} onChange={(e) => setAutoRoof({ ...autoRoof, alero: parseFloat(e.target.value) || 0 })} />
+              <label className="flex items-center gap-1.5" style={{ color: C.gray }}>Alero m
+                <input type="number" step="0.1" inputMode="decimal" value={autoRoof.alero} className="w-16 px-2 py-1.5 rounded-lg font-mono" onChange={(e) => setAutoRoof({ ...autoRoof, alero: parseFloat(e.target.value) || 0 })} />
               </label>
-              <button className="px-3 py-2 rounded font-semibold" style={{ background: C.chrome, color: "#fff" }} onClick={generateAutoRoof}>⚡ Generar sobre la planta</button>
+              <Btn variant="dark" onClick={generateAutoRoof}>⚡ Generar sobre la planta</Btn>
               <span style={{ color: C.gray }}>…o dibujá un paño a mano con dos toques</span>
-            </div>
+            </Card>
           )}
 
           {/* selección de capas y unidad del DXF */}
           {dxfData && (
-            <div className="rounded p-2 flex flex-col gap-2 text-xs" style={{ background: "#fff", border: `1px solid ${C.blue}` }}>
-              <div className="font-semibold" style={{ color: C.blue }}>Importar DXF — {dxfData.segs.length} segmentos detectados</div>
-              <label className="flex items-center gap-2">
+            <Card className="p-3 flex flex-col gap-2 text-xs pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
+              <div className="font-bold flex items-center gap-2" style={{ color: C.blueDark }}>📐 Importar DXF <Chip color={C.blue}>{dxfData.segs.length} segmentos</Chip></div>
+              <label className="flex items-center gap-2 flex-wrap" style={{ color: C.gray }}>
                 Unidad del archivo:
-                <select value={String(dxfData.factor)} onChange={(e) => setDxfData({ ...dxfData, factor: parseFloat(e.target.value) })} className="px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }}>
+                <select value={String(dxfData.factor)} onChange={(e) => setDxfData({ ...dxfData, factor: parseFloat(e.target.value) })} className="px-2 py-1.5 rounded-lg" style={{ color: C.ink }}>
                   <option value="1">metros</option>
                   <option value="0.01">centímetros</option>
                   <option value="0.001">milímetros</option>
                 </select>
-                <span style={{ color: C.gray }}>(detectada automáticamente, corregila si hace falta)</span>
+                <span>(detectada automáticamente, corregila si hace falta)</span>
               </label>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {dxfData.layers.map((l, i) => (
-                  <label key={l.name} className="flex items-center gap-1 px-2 py-1 rounded" style={{ border: "1px solid #E2E0D8", background: l.checked ? C.blueSoft : "#fff" }}>
+                  <label key={l.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer font-medium" style={{ border: `1px solid ${l.checked ? "transparent" : C.line}`, background: l.checked ? C.blueSoft : "#fff", color: l.checked ? C.blueDark : C.gray }}>
                     <input type="checkbox" checked={l.checked} onChange={(e) => { const ls = [...dxfData.layers]; ls[i] = { ...l, checked: e.target.checked }; setDxfData({ ...dxfData, layers: ls }); }} />
                     {l.name} ({l.count})
                   </label>
                 ))}
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-2 rounded font-semibold" style={{ background: C.blue, color: "#fff" }} onClick={importDxf}>Importar muros (reemplaza el trazado actual)</button>
-                <button className="px-3 py-2 rounded" style={btn(false)} onClick={() => setDxfData(null)}>Cancelar</button>
+                <Btn variant="primary" onClick={importDxf}>Importar muros (reemplaza el trazado)</Btn>
+                <Btn onClick={() => setDxfData(null)}>Cancelar</Btn>
               </div>
-            </div>
+            </Card>
           )}
 
-          <div className="text-xs px-3 py-2 rounded" style={{ background: C.blueSoft, color: C.chrome }}>
-            <div style={{ opacity: 0.85 }}>💡 Tocá la cota (el número en metros) de cualquier muro para editar su largo exacto ahí mismo.</div>
-            {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
-            {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
-            {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
-            {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Tocá la primera esquina del paño de techo (en planta). La pendiente se edita abajo.")}
-            {mode === "instal" && "Tocá sobre un muro para marcar un punto de instalación (toma por defecto). Cambiá tipo y altura en la lista de abajo."}
-            {mode === "editar" && "Agarrá y arrastrá: los vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés todos los muros que llegan a ella. Todo con snap de 5 cm."}
-            {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
-            {mode === "calibrar" && (calPts.length < 2 ? `Tocá ${2 - calPts.length} punto${calPts.length === 1 ? "" : "s"} sobre una cota conocida del plano.` : "Ingresá la distancia real en metros y aplicá.")}
+          {/* barra de ayuda contextual */}
+          <div className="text-xs px-3 py-2.5 rounded-xl flex items-start gap-2" style={{ background: C.blueSoft, color: C.chrome }}>
+            <span className="text-sm leading-none mt-0.5">💡</span>
+            <div className="flex flex-col gap-0.5">
+              <span style={{ color: C.blueDark, fontWeight: 600 }}>
+                {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
+                {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
+                {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
+                {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Tocá la primera esquina del paño de techo (en planta). La pendiente se edita abajo.")}
+                {mode === "instal" && "Tocá sobre un muro para marcar un punto de instalación (toma por defecto). Cambiá tipo y altura en la lista de abajo."}
+                {mode === "editar" && "Agarrá y arrastrá: los vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés todos los muros que llegan a ella. Todo con snap de 5 cm."}
+                {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
+                {mode === "calibrar" && (calPts.length < 2 ? `Tocá ${2 - calPts.length} punto${calPts.length === 1 ? "" : "s"} sobre una cota conocida del plano.` : "Ingresá la distancia real en metros y aplicá.")}
+              </span>
+              <span style={{ opacity: 0.7 }}>Tip: tocá la cota (los metros) de cualquier muro para editar su largo ahí mismo · atajos M V T I E G H C · Ctrl+Z deshace.</span>
+            </div>
           </div>
 
           {mode === "calibrar" && calPts.length === 2 && (
-            <div className="flex gap-2 items-center">
+            <Card className="flex gap-2 items-center p-2.5 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: C.blue }}>📏 Escala</span>
               <input
                 type="number" inputMode="decimal" placeholder="Distancia real (m)"
-                className="px-3 py-2 rounded w-40" style={{ border: "1px solid #CFCDC4" }}
+                className="px-3 py-2 rounded-lg w-40 font-mono"
                 value={calInput} onChange={(e) => setCalInput(e.target.value)}
               />
-              <button className="px-4 py-2 rounded font-semibold" style={{ background: C.blue, color: "#fff" }} onClick={applyCalibration}>Aplicar escala</button>
-            </div>
+              <Btn variant="primary" onClick={applyCalibration}>Aplicar escala</Btn>
+            </Card>
           )}
 
           {/* canvas */}
@@ -1113,8 +1226,8 @@ export default function PanelizadorSF() {
           <svg
             ref={svgRef}
             viewBox={viewBox}
-            className="w-full rounded shadow"
-            style={{ background: "#FCFBF8", border: `1px solid #D8D5CC`, touchAction: "none", aspectRatio: "1000/640", cursor: mode === "goma" ? "not-allowed" : mode === "mover" ? "grab" : "crosshair" }}
+            className="w-full rounded-xl"
+            style={{ background: "#FCFBF8", border: `1px solid ${C.line}`, boxShadow: "0 1px 2px rgba(16,32,43,.04), 0 6px 22px rgba(16,32,43,.08)", touchAction: "none", aspectRatio: "1000/640", cursor: mode === "goma" ? "not-allowed" : mode === "mover" ? "grab" : "crosshair" }}
             onPointerDown={onCanvasDown}
             onPointerMove={onCanvasMove}
             onPointerUp={onCanvasUp}
@@ -1246,6 +1359,49 @@ export default function PanelizadorSF() {
             {calPts.length === 2 && <line x1={calPts[0].x} y1={calPts[0].y} x2={calPts[1].x} y2={calPts[1].y} stroke={C.red} strokeWidth={2 / zoom} strokeDasharray="6 4" />}
           </svg>
 
+          {/* chip de modo activo (arriba-izquierda) */}
+          {(() => {
+            const MODE_INFO = {
+              muro: { icon: "✏️", label: "Muro", color: C.blue },
+              vano: { icon: "▢", label: "Vano", color: C.orange },
+              techo: { icon: "⛰", label: "Techo", color: C.gray },
+              instal: { icon: "⚡", label: "Instalación", color: C.elec },
+              editar: { icon: "↖", label: "Editar", color: C.green },
+              goma: { icon: "🧽", label: "Goma", color: C.red },
+              mover: { icon: "✋", label: "Mover", color: C.gray },
+              calibrar: { icon: "📏", label: "Calibrar", color: C.blue },
+            };
+            const m = MODE_INFO[mode] || { icon: "•", label: mode, color: C.gray };
+            return (
+              <div className="absolute flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg pop-in" style={{ left: 10, top: 10, background: "rgba(255,255,255,.92)", border: `1px solid ${C.line}`, boxShadow: "0 2px 10px rgba(16,32,43,.1)", backdropFilter: "blur(6px)" }}>
+                <span style={{ fontSize: 14 }}>{m.icon}</span>
+                <span className="text-xs font-bold" style={{ color: m.color }}>{m.label}</span>
+              </div>
+            );
+          })()}
+
+          {/* controles de vista (arriba-derecha) */}
+          <div className="absolute flex flex-col gap-1.5" style={{ right: 10, top: 10 }}>
+            <IconBtn icon="＋" hint="Acercar (+)" onClick={() => setZoom((z) => Math.min(4, z * 1.25))} />
+            <IconBtn icon="－" hint="Alejar (−)" onClick={() => setZoom((z) => Math.max(0.4, z / 1.25))} />
+            <IconBtn icon="⌖" hint="Centrar y resetear (0)" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} />
+          </div>
+
+          {/* indicador de zoom */}
+          <div className="absolute px-2 py-1 rounded-md text-[11px] font-mono" style={{ right: 10, bottom: 10, background: "rgba(255,255,255,.9)", color: C.gray, border: `1px solid ${C.line}` }}>{Math.round(zoom * 100)}%</div>
+
+          {/* estado vacío */}
+          {walls.length === 0 && roofs.length === 0 && !bg && (
+            <div className="absolute inset-0 grid place-items-center pointer-events-none">
+              <div className="text-center px-6 py-5 rounded-2xl pointer-events-auto" style={{ background: "rgba(255,255,255,.86)", border: `1px dashed ${"#C9CFD8"}`, backdropFilter: "blur(4px)" }}>
+                <div className="text-3xl mb-1">📐</div>
+                <div className="font-bold" style={{ color: C.ink }}>Empezá a trazar tu planta</div>
+                <div className="text-xs mb-3" style={{ color: C.gray }}>Elegí <b>Muro</b> y tocá dos puntos, o cargá un ejemplo.</div>
+                <Btn variant="success" onClick={loadExample}>✨ Cargar ejemplo</Btn>
+              </div>
+            </div>
+          )}
+
           {/* cota editable en el canvas: campo flotante sobre el muro elegido */}
           {editWall && (() => {
             const w2 = walls.find((x) => x.id === editWall.id);
@@ -1281,39 +1437,32 @@ export default function PanelizadorSF() {
           </div>
 
           {/* resumen rápido */}
-          <div className="grid grid-cols-4 gap-2 text-center">
-            {[
-              [totalMuros.toFixed(1) + " ml", "Muros"],
-              [String(result.panels.length), "Pan. muro"],
-              [String(result.roofInfo.reduce((s, r) => s + r.n, 0)), "Pan. techo"],
-              [String(result.osbWallSheets + result.osbRoofSheets), "Placas OSB"],
-            ].map(([v, l]) => (
-              <div key={l} className="rounded p-2" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                <div className="text-lg font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{v}</div>
-                <div className="text-xs" style={{ color: C.gray }}>{l}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <Stat value={totalMuros.toFixed(1) + " ml"} label="Muros" accent={C.ink} />
+            <Stat value={String(result.panels.length)} label="Paneles muro" accent={C.blue} />
+            <Stat value={String(result.roofInfo.reduce((s, r) => s + r.n, 0))} label="Paneles techo" accent={C.gray} />
+            <Stat value={String(result.osbWallSheets + result.osbRoofSheets)} label="Placas OSB" accent={C.osb} />
           </div>
 
           {/* muros editables */}
           {walls.length > 0 && (
-            <details>
-              <summary className="font-semibold text-sm cursor-pointer py-1">Muros ({walls.length}) — editar largos</summary>
-              <div className="flex flex-col gap-1 mt-1">
+            <details className="group">
+              <summary className="flex items-center gap-2 cursor-pointer py-1.5 select-none">
+                <span className="text-xs transition-transform group-open:rotate-90" style={{ color: C.gray }}>▶</span>
+                <SectionTitle count={walls.length}>Muros — editar largos</SectionTitle>
+              </summary>
+              <div className="flex flex-col gap-1.5 mt-1">
                 {walls.map((w2) => {
                   const L = dist(w2.a, w2.b) / ppm;
                   return (
-                    <div key={`${w2.id}-${L.toFixed(2)}`} className="rounded px-2 py-1 flex items-center gap-2 text-xs" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                      <span style={{ fontFamily: "ui-monospace, monospace" }}>Muro #{w2.id}</span>
-                      <input
-                        type="number" step="0.05" inputMode="decimal" defaultValue={L.toFixed(2)}
-                        className="w-20 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }}
-                        onBlur={(e) => { const m = parseFloat(e.target.value); if (m > 0.05 && Math.abs(m - L) > 0.005) setWallLength(w2.id, m); }}
-                      />
-                      <span style={{ color: C.gray }}>m (mueve el extremo final)</span>
-                      <button className="ml-auto px-2 py-1 rounded" style={{ color: C.red, border: `1px solid ${C.red}` }}
-                        onClick={() => { setWalls((ws) => ws.filter((x) => x.id !== w2.id)); setOpenings((os) => os.filter((x) => x.wallId !== w2.id)); setFixtures((fs) => fs.filter((x) => x.wallId !== w2.id)); }}>Borrar</button>
-                    </div>
+                    <Card key={`${w2.id}-${L.toFixed(2)}`} className="px-3 py-2 flex items-center gap-2.5 text-xs">
+                      <Chip color={C.ink}>Muro #{w2.id}</Chip>
+                      <NumInput step="0.05" defaultValue={L.toFixed(2)} className="w-24"
+                        onBlur={(e) => { const m = parseFloat(e.target.value); if (m > 0.05 && Math.abs(m - L) > 0.005) setWallLength(w2.id, m); }} />
+                      <span style={{ color: C.gray }}>m · mueve el extremo final</span>
+                      <Btn variant="danger" size="sm" className="ml-auto"
+                        onClick={() => { setWalls((ws) => ws.filter((x) => x.id !== w2.id)); setOpenings((os) => os.filter((x) => x.wallId !== w2.id)); setFixtures((fs) => fs.filter((x) => x.wallId !== w2.id)); }}>Borrar</Btn>
+                    </Card>
                   );
                 })}
               </div>
@@ -1323,33 +1472,30 @@ export default function PanelizadorSF() {
           {/* techos editables */}
           {roofs.length > 0 && (
             <div>
-              <div className="font-semibold text-sm mb-1">Paños de techo</div>
+              <SectionTitle count={roofs.length}>Paños de techo</SectionTitle>
               <div className="flex flex-col gap-2">
                 {roofs.map((r, idx) => {
                   const info = result.roofInfo.find((x) => x.id === r.id);
                   return (
-                    <div key={r.id} className="rounded p-2 flex flex-wrap items-end gap-2 text-xs" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                      <span className="font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>T{idx + 1}</span>
-                      <label className="flex flex-col" style={{ color: C.gray }}>
-                        Pendiente (%)
-                        <input type="number" step="1" inputMode="decimal" value={r.slope} className="w-20 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4", color: C.ink }}
+                    <Card key={r.id} className="p-2.5 flex flex-wrap items-end gap-3 text-xs">
+                      <Chip color={C.gray}>T{idx + 1}</Chip>
+                      <Field label="Pendiente (%)">
+                        <NumInput step="1" value={r.slope} className="w-20"
                           onChange={(e) => updateRoof(r.id, { slope: parseFloat(e.target.value) || 0 })} />
-                      </label>
-                      <label className="flex flex-col" style={{ color: C.gray }}>
-                        Sentido pendiente
-                        <select value={r.dir} className="px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }} onChange={(e) => updateRoof(r.id, { dir: e.target.value })}>
+                      </Field>
+                      <Field label="Sentido pendiente">
+                        <select value={r.dir} className="px-2 py-1.5 rounded-lg" onChange={(e) => updateRoof(r.id, { dir: e.target.value })}>
                           <option value="x">↔ horizontal</option>
                           <option value="y">↕ vertical</option>
                         </select>
-                      </label>
+                      </Field>
                       {info && (
-                        <span style={{ fontFamily: "ui-monospace, monospace", color: info.warn ? C.red : C.gray }}>
+                        <span className="font-mono pb-1.5" style={{ color: info.warn ? C.red : C.gray }}>
                           pend {info.slopeLen.toFixed(2)} m · {info.n} paneles de {info.pw.toFixed(2)} m · {info.nCh} chapas
                         </span>
                       )}
-                      <button className="ml-auto px-2 py-1 rounded" style={{ color: C.red, border: `1px solid ${C.red}` }}
-                        onClick={() => setRoofs((rs) => rs.filter((x) => x.id !== r.id))}>Borrar</button>
-                    </div>
+                      <Btn variant="danger" size="sm" className="ml-auto" onClick={() => setRoofs((rs) => rs.filter((x) => x.id !== r.id))}>Borrar</Btn>
+                    </Card>
                   );
                 })}
               </div>
@@ -1359,29 +1505,31 @@ export default function PanelizadorSF() {
           {/* instalaciones editables */}
           {fixtures.length > 0 && (
             <div>
-              <div className="font-semibold text-sm mb-1">Instalaciones</div>
+              <SectionTitle count={fixtures.length}>Instalaciones</SectionTitle>
               <div className="flex flex-col gap-2">
-                {fixtures.map((f) => (
-                  <div key={f.id} className="rounded p-2 flex flex-wrap items-end gap-2 text-xs" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 5, background: FIXTYPES[f.type] && FIXTYPES[f.type].kind === "elec" ? C.elec : C.agua, marginBottom: 6 }} />
-                    <select value={f.type} className="px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }}
-                      onChange={(e) => updateFixture(f.id, { type: e.target.value, height: FIXTYPES[e.target.value].height })}>
-                      {Object.entries(FIXTYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                    </select>
-                    <label className="flex flex-col" style={{ color: C.gray }}>
-                      Altura (m)
-                      <input type="number" step="0.05" inputMode="decimal" value={f.height} className="w-20 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4", color: C.ink }}
-                        onChange={(e) => updateFixture(f.id, { height: parseFloat(e.target.value) || 0 })} />
-                    </label>
-                    <label className="flex flex-col" style={{ color: C.gray }}>
-                      Desde inicio (m)
-                      <input type="number" step="0.05" inputMode="decimal" value={f.offset} className="w-20 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4", color: C.ink }}
-                        onChange={(e) => updateFixture(f.id, { offset: parseFloat(e.target.value) || 0 })} />
-                    </label>
-                    <button className="ml-auto px-2 py-1 rounded" style={{ color: C.red, border: `1px solid ${C.red}` }}
-                      onClick={() => setFixtures((fs) => fs.filter((x) => x.id !== f.id))}>Borrar</button>
-                  </div>
-                ))}
+                {fixtures.map((f) => {
+                  const elec = FIXTYPES[f.type] && FIXTYPES[f.type].kind === "elec";
+                  return (
+                    <Card key={f.id} className="p-2.5 flex flex-wrap items-end gap-3 text-xs">
+                      <span className="mb-2" style={{ width: 12, height: 12, borderRadius: 6, background: elec ? C.elec : C.agua }} />
+                      <Field label="Tipo">
+                        <select value={f.type} className="px-2 py-1.5 rounded-lg"
+                          onChange={(e) => updateFixture(f.id, { type: e.target.value, height: FIXTYPES[e.target.value].height })}>
+                          {Object.entries(FIXTYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Altura (m)">
+                        <NumInput step="0.05" value={f.height} className="w-20"
+                          onChange={(e) => updateFixture(f.id, { height: parseFloat(e.target.value) || 0 })} />
+                      </Field>
+                      <Field label="Desde inicio (m)">
+                        <NumInput step="0.05" value={f.offset} className="w-20"
+                          onChange={(e) => updateFixture(f.id, { offset: parseFloat(e.target.value) || 0 })} />
+                      </Field>
+                      <Btn variant="danger" size="sm" className="ml-auto" onClick={() => setFixtures((fs) => fs.filter((x) => x.id !== f.id))}>Borrar</Btn>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1389,30 +1537,30 @@ export default function PanelizadorSF() {
           {/* vanos editables */}
           {openings.length > 0 && (
             <div>
-              <div className="font-semibold text-sm mb-1">Vanos</div>
+              <SectionTitle count={openings.length}>Vanos</SectionTitle>
               <div className="flex flex-col gap-2">
                 {openings.map((o) => (
-                  <div key={o.id} className="rounded p-2 flex flex-wrap items-end gap-2 text-xs" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                    <select value={o.type} className="px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4" }}
-                      onChange={(e) => updateOpening(o.id, { type: e.target.value, sill: e.target.value === "puerta" ? 0 : o.sill || 1.0, height: e.target.value === "puerta" ? 2.05 : o.height })}>
-                      <option value="ventana">Ventana</option>
-                      <option value="puerta">Puerta</option>
-                    </select>
+                  <Card key={o.id} className="p-2.5 flex flex-wrap items-end gap-3 text-xs">
+                    <Field label="Tipo">
+                      <select value={o.type} className="px-2 py-1.5 rounded-lg"
+                        onChange={(e) => updateOpening(o.id, { type: e.target.value, sill: e.target.value === "puerta" ? 0 : o.sill || 1.0, height: e.target.value === "puerta" ? 2.05 : o.height })}>
+                        <option value="ventana">Ventana</option>
+                        <option value="puerta">Puerta</option>
+                      </select>
+                    </Field>
                     {[
                       ["Ancho", "width"],
                       ["Alto", "height"],
-                      ...(o.type === "ventana" ? [["Antep.", "sill"]] : []),
+                      ...(o.type === "ventana" ? [["Antepecho", "sill"]] : []),
                       ["Desde inicio", "offset"],
                     ].map(([lbl, key]) => (
-                      <label key={key} className="flex flex-col" style={{ color: C.gray }}>
-                        {lbl} (m)
-                        <input type="number" step="0.05" inputMode="decimal" value={o[key]} className="w-20 px-1 py-1 rounded" style={{ border: "1px solid #CFCDC4", color: C.ink }}
+                      <Field key={key} label={`${lbl} (m)`}>
+                        <NumInput step="0.05" value={o[key]} className="w-20"
                           onChange={(e) => updateOpening(o.id, { [key]: parseFloat(e.target.value) || 0 })} />
-                      </label>
+                      </Field>
                     ))}
-                    <button className="ml-auto px-2 py-1 rounded" style={{ color: C.red, border: `1px solid ${C.red}` }}
-                      onClick={() => setOpenings((os) => os.filter((x) => x.id !== o.id))}>Borrar</button>
-                  </div>
+                    <Btn variant="danger" size="sm" className="ml-auto" onClick={() => setOpenings((os) => os.filter((x) => x.id !== o.id))}>Borrar</Btn>
+                  </Card>
                 ))}
               </div>
             </div>
