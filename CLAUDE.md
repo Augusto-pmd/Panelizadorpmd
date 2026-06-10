@@ -3,7 +3,8 @@
 Herramienta de panelización: del plano (municipal, DXF o croquis) a paneles de fábrica con fichas, instructivo de corte de OSB, planilla optimizada y cómputo de materiales.
 
 ## Stack
-- React 18 + Vite. UI en `src/PanelizadorSF.jsx`; motor puro (sin React/DOM) en `src/lib/` (TypeScript): `rules`, `geometry`, `dxf`, `panelize`, `osb` y `engine` (orquestador + barrel). Tipos de dominio en `src/lib/types.ts`.
+- React 18 + Vite. UI en `src/PanelizadorSF.jsx` + sistema de componentes en `src/ui.jsx` (Card, Btn, ToolButton, IconBtn, Stat, SectionTitle, Chip, Field, NumInput, EmptyState). Fundación de diseño (tipografía Inter/JetBrains Mono, tokens Tailwind, estilos base, impresión) en `index.html`. Motor puro (sin React/DOM) en `src/lib/` (TypeScript): `rules`, `geometry`, `dxf`, `panelize`, `osb` y `engine` (orquestador + barrel). Tipos de dominio en `src/lib/types.ts`.
+- UX: navegación por vistas, tool dock con atajos (M V T I E G H C), Deshacer/Rehacer (Ctrl+Z / Ctrl+Shift+Z), zoom flotante sobre el canvas (+/−/0), cotas editables tocando el número del muro.
 - Tests con Vitest en `src/lib/__tests__/` (`npm test`). Typecheck con `npm run typecheck`. Blindan las reglas constructivas PMD.
 - Three.js r128 (vista 3D, sin OrbitControls: órbita propia con pointer events).
 - Tailwind por CDN (en `index.html`). Colores custom van por `style` inline (paleta en const `C`).

@@ -984,12 +984,6 @@ export default function PanelizadorSF() {
   for (let x = 0; x <= VB_W; x += step) gridLines.push(<line key={`gx${x}`} x1={x} y1={0} x2={x} y2={VB_H} stroke={C.grid} strokeWidth={1 / zoom} />);
   for (let y = 0; y <= VB_H; y += step) gridLines.push(<line key={`gy${y}`} x1={0} y1={y} x2={VB_W} y2={y} stroke={C.grid} strokeWidth={1 / zoom} />);
 
-  const btn = (active, color) => ({
-    background: active ? (color || C.blue) : "#fff",
-    color: active ? "#fff" : C.ink,
-    border: `1px solid ${active ? (color || C.blue) : "#CFCDC4"}`,
-  });
-
   return (
     <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
       {/* ===== App shell: top bar + navegación de vistas (sticky) ===== */}
@@ -1415,8 +1409,8 @@ export default function PanelizadorSF() {
             };
             return (
               <div
-                className="absolute flex items-center gap-1 rounded px-1 py-1 shadow"
-                style={{ left: `${pos.left}%`, top: `${pos.top}%`, transform: "translate(-50%, -130%)", background: "#fff", border: `1.5px solid ${C.blue}`, zIndex: 10 }}
+                className="absolute flex items-center gap-1 rounded-xl px-1.5 py-1.5 pop-in"
+                style={{ left: `${pos.left}%`, top: `${pos.top}%`, transform: "translate(-50%, -130%)", background: "#fff", border: `1.5px solid ${C.blue}`, boxShadow: "0 8px 24px rgba(16,32,43,.18)", zIndex: 20 }}
               >
                 <input
                   autoFocus
@@ -1425,12 +1419,11 @@ export default function PanelizadorSF() {
                   onChange={(e) => setEditWall({ ...editWall, value: e.target.value })}
                   onFocus={(e) => e.target.select()}
                   onKeyDown={(e) => { if (e.key === "Enter") apply(); if (e.key === "Escape") setEditWall(null); }}
-                  className="w-16 px-1 py-0.5 text-sm rounded"
-                  style={{ border: "1px solid #CFCDC4", fontFamily: "ui-monospace, monospace" }}
+                  className="w-16 px-2 py-1 text-sm rounded-lg font-mono"
                 />
                 <span className="text-xs" style={{ color: C.gray }}>m</span>
-                <button onClick={apply} className="px-2 py-0.5 rounded text-sm font-bold" style={{ background: C.blue, color: "#fff" }}>✓</button>
-                <button onClick={() => setEditWall(null)} className="px-1.5 py-0.5 rounded text-sm" style={{ color: C.gray, border: "1px solid #E2E0D8" }}>✕</button>
+                <button onClick={apply} className="grid place-items-center rounded-lg text-sm font-bold" style={{ width: 28, height: 28, background: C.blue, color: "#fff" }}>✓</button>
+                <button onClick={() => setEditWall(null)} className="grid place-items-center rounded-lg text-sm" style={{ width: 28, height: 28, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
               </div>
             );
           })()}
@@ -1989,7 +1982,7 @@ export default function PanelizadorSF() {
                       </thead>
                       <tbody>
                         {rows.map((r, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #F3F2EC" }}>
+                          <tr key={i} style={{ borderBottom: `1px solid ${C.line}` }}>
                             <td className="py-1">{r.uso}</td>
                             <td className="py-1">{r.perfil}</td>
                             <td className="py-1 text-right font-bold">{r.largo.toFixed(2)} m</td>
@@ -2036,7 +2029,7 @@ export default function PanelizadorSF() {
                             </thead>
                             <tbody>
                               {cut.pieces.map((pc, i) => (
-                                <tr key={i} style={{ borderBottom: "1px solid #F3F2EC" }}>
+                                <tr key={i} style={{ borderBottom: `1px solid ${C.line}` }}>
                                   <td className="py-1 font-bold">{p.id}-{pc.tag}{pc.lap ? " ▨" : ""}</td>
                                   <td className="py-1">{pc.w.toFixed(2)} × {pc.h.toFixed(2)} m</td>
                                   <td className="py-1" style={{ color: pc.notches.length ? C.orange : C.gray }}>
