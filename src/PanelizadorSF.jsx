@@ -27,6 +27,7 @@ export default function PanelizadorSF() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
   const [editWall, setEditWall] = useState(null); // { id, value } — cota editable en el canvas
+  const [showHelp, setShowHelp] = useState(false); // panel de atajos y ayuda
   const [autoRoof, setAutoRoof] = useState({ tipo: "2aguas-h", pendiente: 30, alero: 0.3 });
   const svgRef = useRef(null);
   const idRef = useRef(1);
@@ -96,7 +97,7 @@ export default function PanelizadorSF() {
     if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
     if (typing) return;
-    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); return; }
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); setShowHelp(false); return; }
     if (tab !== "plano") return;
     const toolKeys = { m: "muro", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
@@ -1000,10 +1001,16 @@ export default function PanelizadorSF() {
               <div className="text-[15px] font-bold">Panelizador Steel Framing</div>
             </div>
           </div>
-          <div className="ml-auto hidden md:flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "#8FA6C9" }}>
-            {["Muro 3×3 m", "Techo 6 m", "OSB 1,22×2,44"].map((s) => (
-              <span key={s} className="px-2 py-1 rounded-md" style={{ background: "rgba(255,255,255,.06)" }}>{s}</span>
-            ))}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "#8FA6C9" }}>
+              {["Muro 3×3 m", "Techo 6 m", "OSB 1,22×2,44"].map((s) => (
+                <span key={s} className="px-2 py-1 rounded-md" style={{ background: "rgba(255,255,255,.06)" }}>{s}</span>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowHelp(true)} data-tip="Atajos y ayuda"
+              className="grid place-items-center rounded-lg" style={{ width: 32, height: 32, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.12)" }}
+            >⌨</button>
           </div>
         </header>
 
@@ -2075,6 +2082,42 @@ export default function PanelizadorSF() {
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* ===== Footer ===== */}
+      <footer className="no-print mt-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2 text-[11px]" style={{ borderTop: `1px solid ${C.line}`, color: C.gray }}>
+        <span>PMD Arquitectura SRL · Panelizador Steel Framing</span>
+        <span className="font-mono">Montantes PGC @400 · paneles 3,00 m · OSB trabado 1,22×2,44</span>
+      </footer>
+
+      {/* ===== Modal de atajos y ayuda ===== */}
+      {showHelp && (
+        <div className="no-print fixed inset-0 z-50 grid place-items-center p-4" style={{ background: "rgba(16,32,43,.45)", backdropFilter: "blur(2px)" }} onClick={() => setShowHelp(false)}>
+          <Card className="p-5 pop-in w-full" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold" style={{ color: C.ink }}>⌨ Atajos y ayuda</h3>
+              <button onClick={() => setShowHelp(false)} className="grid place-items-center rounded-lg" style={{ width: 30, height: 30, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
+            </div>
+            <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: C.gray }}>Herramientas</div>
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
+              {[["M", "Muro"], ["V", "Vano"], ["T", "Techo"], ["I", "Instalación"], ["E", "Editar"], ["G", "Goma"], ["H", "Mover"], ["C", "Calibrar"]].map(([k, label]) => (
+                <div key={k} className="flex items-center gap-2 text-sm">
+                  <kbd className="grid place-items-center rounded-md font-mono text-xs font-bold" style={{ minWidth: 24, height: 24, padding: "0 6px", background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>{k}</kbd>
+                  <span style={{ color: C.ink }}>{label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: C.gray }}>Acciones</div>
+            <div className="flex flex-col gap-1.5">
+              {[["Ctrl + Z", "Deshacer"], ["Ctrl + ⇧ + Z", "Rehacer"], ["+  /  −  /  0", "Acercar · alejar · centrar"], ["Esc", "Cancelar trazo en curso"], ["Tocar la cota", "Editar el largo del muro"]].map(([k, label]) => (
+                <div key={k} className="flex items-center gap-2 text-sm">
+                  <kbd className="grid place-items-center rounded-md font-mono text-xs font-bold" style={{ height: 24, padding: "0 8px", background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>{k}</kbd>
+                  <span style={{ color: C.ink }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       )}
     </div>
