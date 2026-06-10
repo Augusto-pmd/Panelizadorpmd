@@ -25,6 +25,7 @@ export default function PanelizadorSF() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
+  const [editWall, setEditWall] = useState(null); // { id, value } — cota editable en el canvas
   const [autoRoof, setAutoRoof] = useState({ tipo: "2aguas-h", pendiente: 30, alero: 0.3 });
   const svgRef = useRef(null);
   const idRef = useRef(1);
@@ -909,7 +910,10 @@ export default function PanelizadorSF() {
   const totalChapas = result.chapas.reduce((s, c) => s + c.cant, 0);
 
   const w = VB_W / zoom, h = VB_H / zoom;
-  const viewBox = `${(VB_W - w) / 2 + pan.x} ${(VB_H - h) / 2 + pan.y} ${w} ${h}`;
+  const vbX = (VB_W - w) / 2 + pan.x, vbY = (VB_H - h) / 2 + pan.y;
+  const viewBox = `${vbX} ${vbY} ${w} ${h}`;
+  // mundo -> % dentro del canvas (sigue zoom/pan; el wrapper tiene el mismo tamaño que el svg)
+  const worldToPct = (wx, wy) => ({ left: ((wx - vbX) / w) * 100, top: ((wy - vbY) / h) * 100 });
 
   const gridLines = [];
   const step = ppm;
@@ -1082,6 +1086,7 @@ export default function PanelizadorSF() {
           )}
 
           <div className="text-xs px-3 py-2 rounded" style={{ background: C.blueSoft, color: C.chrome }}>
+            <div style={{ opacity: 0.85 }}>💡 Tocá la cota (el número en metros) de cualquier muro para editar su largo exacto ahí mismo.</div>
             {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
             {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
             {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
@@ -1104,6 +1109,7 @@ export default function PanelizadorSF() {
           )}
 
           {/* canvas */}
+          <div className="relative">
           <svg
             ref={svgRef}
             viewBox={viewBox}
@@ -1149,9 +1155,18 @@ export default function PanelizadorSF() {
               return (
                 <g key={w2.id}>
                   <line x1={w2.a.x} y1={w2.a.y} x2={w2.b.x} y2={w2.b.y} stroke={C.ink} strokeWidth={8 / zoom} strokeLinecap="square" />
-                  <text x={mx} y={my - 10 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
-                    {L.toFixed(2)} m
-                  </text>
+                  {/* cota editable: tocar el número abre el campo para tipear el largo exacto */}
+                  <g
+                    style={{ cursor: "pointer" }}
+                    onPointerDown={(e) => { e.stopPropagation(); setEditWall({ id: w2.id, value: L.toFixed(2) }); }}
+                  >
+                    {/* halo para legibilidad sobre el plano de fondo + área de toque */}
+                    <rect x={mx - 30 / zoom} y={my - 24 / zoom} width={60 / zoom} height={18 / zoom} rx={4 / zoom}
+                      fill="#FCFBF8" opacity={0.85} stroke={editWall && editWall.id === w2.id ? C.blue : "transparent"} strokeWidth={1.5 / zoom} />
+                    <text x={mx} y={my - 11 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
+                      {L.toFixed(2)} m
+                    </text>
+                  </g>
                 </g>
               );
             })}
@@ -1230,6 +1245,40 @@ export default function PanelizadorSF() {
             ))}
             {calPts.length === 2 && <line x1={calPts[0].x} y1={calPts[0].y} x2={calPts[1].x} y2={calPts[1].y} stroke={C.red} strokeWidth={2 / zoom} strokeDasharray="6 4" />}
           </svg>
+
+          {/* cota editable en el canvas: campo flotante sobre el muro elegido */}
+          {editWall && (() => {
+            const w2 = walls.find((x) => x.id === editWall.id);
+            if (!w2) return null;
+            const mx = (w2.a.x + w2.b.x) / 2, my = (w2.a.y + w2.b.y) / 2;
+            const pos = worldToPct(mx, my);
+            const apply = () => {
+              const m = parseFloat(String(editWall.value).replace(",", "."));
+              if (m > 0.05) setWallLength(editWall.id, m);
+              setEditWall(null);
+            };
+            return (
+              <div
+                className="absolute flex items-center gap-1 rounded px-1 py-1 shadow"
+                style={{ left: `${pos.left}%`, top: `${pos.top}%`, transform: "translate(-50%, -130%)", background: "#fff", border: `1.5px solid ${C.blue}`, zIndex: 10 }}
+              >
+                <input
+                  autoFocus
+                  type="number" step="0.05" inputMode="decimal"
+                  value={editWall.value}
+                  onChange={(e) => setEditWall({ ...editWall, value: e.target.value })}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => { if (e.key === "Enter") apply(); if (e.key === "Escape") setEditWall(null); }}
+                  className="w-16 px-1 py-0.5 text-sm rounded"
+                  style={{ border: "1px solid #CFCDC4", fontFamily: "ui-monospace, monospace" }}
+                />
+                <span className="text-xs" style={{ color: C.gray }}>m</span>
+                <button onClick={apply} className="px-2 py-0.5 rounded text-sm font-bold" style={{ background: C.blue, color: "#fff" }}>✓</button>
+                <button onClick={() => setEditWall(null)} className="px-1.5 py-0.5 rounded text-sm" style={{ color: C.gray, border: "1px solid #E2E0D8" }}>✕</button>
+              </div>
+            );
+          })()}
+          </div>
 
           {/* resumen rápido */}
           <div className="grid grid-cols-4 gap-2 text-center">
