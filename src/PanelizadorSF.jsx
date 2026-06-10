@@ -5,7 +5,7 @@ import {
   slugify, parseDxf, dist, projectOnSegment, detectJoints,
   panelizeWall, osbLayoutForPanel, osbPiecesForPanel, packOsbSheets, buildAll,
 } from "./lib/engine";
-import { Card, Btn, ToolButton, IconBtn, Stat, SectionTitle, Chip, Field, NumInput } from "./ui";
+import { Card, Btn, ToolButton, IconBtn, Stat, SectionTitle, Chip, Field, NumInput, EmptyState } from "./ui";
 // ---------------- componente principal ----------------
 export default function PanelizadorSF() {
   const [tab, setTab] = useState("plano");
@@ -993,7 +993,7 @@ export default function PanelizadorSF() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
       {/* ===== App shell: top bar + navegación de vistas (sticky) ===== */}
-      <div className="sticky top-0 z-40">
+      <div className="sticky top-0 z-40 no-print">
         <header
           className="px-4 py-2.5 flex items-center gap-3"
           style={{ background: C.chrome, color: "#fff", boxShadow: "0 6px 20px rgba(16,32,43,.18)" }}
@@ -1570,9 +1570,10 @@ export default function PanelizadorSF() {
 
       {/* ================= TAB PANELES ================= */}
       {tab === "paneles" && (
-        <div className="p-3 flex flex-col gap-3">
+        <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
           {result.panels.length === 0 && result.roofInfo.length === 0 && (
-            <div className="text-sm" style={{ color: C.gray }}>Trazá muros y techos en la pestaña Plano (o tocá "Cargar ejemplo").</div>
+            <EmptyState icon="🧱" title="Todavía no hay paneles" hint='Trazá muros y techos en la pestaña Plano (o cargá un ejemplo) y acá aparecen las fichas de fábrica.'
+              action={<Btn variant="success" onClick={() => { loadExample(); setTab("plano"); }}>✨ Cargar ejemplo</Btn>} />
           )}
 
           {result.panels.map((p) => {
@@ -1584,15 +1585,15 @@ export default function PanelizadorSF() {
             const osbRows = showOsb ? osbLayoutForPanel(p, vincha, RULES) : [];
             const lapW = showOsb && !p.last ? RULES.osbLap * sc : 0;
             return (
-              <div key={p.id} className="rounded p-3" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                <div className="flex items-baseline justify-between mb-2">
-                  <div className="font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{p.id}</div>
-                  <div className="text-xs" style={{ color: C.gray, fontFamily: "ui-monospace, monospace" }}>
-                    {p.len.toFixed(2)} × {totalH.toFixed(2)} m{vincha ? " (3,00 + VT + MC 0,50)" : ""} · muro #{p.wallId}
+              <Card key={p.id} className="p-3.5 fade-in">
+                <div className="flex items-center justify-between mb-2.5">
+                  <Chip color={C.blue} soft={false} className="text-xs px-2.5 py-1">{p.id}</Chip>
+                  <div className="text-xs font-mono" style={{ color: C.gray }}>
+                    {p.len.toFixed(2)} × {totalH.toFixed(2)} m{vincha ? " · 3,00 + VT + MC 0,50" : ""} · muro #{p.wallId}
                   </div>
                 </div>
                 {p.warnings.map((wn, i) => (
-                  <div key={i} className="text-xs mb-1" style={{ color: C.red }}>⚠ {wn}</div>
+                  <div key={i} className="text-xs mb-1.5 px-2 py-1 rounded-md inline-flex items-center gap-1" style={{ color: C.red, background: `${C.red}12` }}>⚠ {wn}</div>
                 ))}
                 <div className="overflow-x-auto">
                   <svg viewBox={`-6 ${-(extra + 18)} ${pw + lapW + 14} ${ph + extra + 38}`} style={{ width: Math.min(pw + lapW + 14, 700), maxWidth: "100%" }}>
@@ -1729,7 +1730,7 @@ export default function PanelizadorSF() {
                   </span>
                   {showOsb && <span style={{ color: C.osb }}>— — OSB trabado · ∟ martillo en vanos · ▨ solape 0,30 m sobre panel vecino</span>}
                 </div>
-              </div>
+              </Card>
             );
           })}
 
@@ -1739,14 +1740,17 @@ export default function PanelizadorSF() {
             const pw = Math.min(r.slopeLen, 8) * sc, ph = r.pw * sc;
             const nCab = r.cabios;
             return (
-              <div key={r.tag} className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.gray}` }}>
-                <div className="flex items-baseline justify-between mb-2">
-                  <div className="font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{r.tag} — Techo inclinado ({r.slope}%)</div>
-                  <div className="text-xs" style={{ color: C.gray, fontFamily: "ui-monospace, monospace" }}>
+              <Card key={r.tag} className="p-3.5 fade-in">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Chip color={C.gray} soft={false} className="text-xs px-2.5 py-1">{r.tag}</Chip>
+                    <span className="text-sm font-bold" style={{ color: C.ink }}>Techo inclinado {r.slope}%</span>
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: C.gray }}>
                     {r.n} paneles de {r.slopeLen.toFixed(2)} × {r.pw.toFixed(2)} m
                   </div>
                 </div>
-                {r.warn && <div className="text-xs mb-1" style={{ color: C.red }}>⚠ Largo de pendiente {r.slopeLen.toFixed(2)} m supera el máximo de 6 m — dividir el paño</div>}
+                {r.warn && <div className="text-xs mb-1.5 px-2 py-1 rounded-md inline-flex items-center gap-1" style={{ color: C.red, background: `${C.red}12` }}>⚠ Pendiente {r.slopeLen.toFixed(2)} m &gt; 6 m — dividir el paño</div>}
                 <div className="overflow-x-auto">
                   <svg viewBox={`-6 -6 ${pw + 12} ${ph + 12}`} style={{ width: Math.min(pw + 12, 700), maxWidth: "100%" }}>
                     <rect x={0} y={0} width={pw} height={ph} fill="#FAFAF7" stroke={C.ink} strokeWidth={3} />
@@ -1759,10 +1763,10 @@ export default function PanelizadorSF() {
                     ))}
                   </svg>
                 </div>
-                <div className="mt-2 text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.gray }}>
+                <div className="mt-2 text-xs font-mono" style={{ color: C.gray }}>
                   {nCab} cabios PGC de {(r.slopeLen - RULES.studDeduct).toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -1770,124 +1774,119 @@ export default function PanelizadorSF() {
 
       {/* ================= TAB 3D ================= */}
       {tab === "v3d" && (
-        <div className="p-3 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2 items-center">
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(view3d === "esquema")} onClick={() => setView3d("esquema")}>◻ Esquemático</button>
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={btn(view3d === "realista")} onClick={() => setView3d("realista")}>◼ Realista</button>
-            <label className="flex items-center gap-1 text-sm ml-2"><input type="checkbox" checked={osb3d} onChange={(e) => setOsb3d(e.target.checked)} /> OSB</label>
-            <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={lana3d} onChange={(e) => setLana3d(e.target.checked)} /> Lana</label>
-            <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={roof3d} onChange={(e) => setRoof3d(e.target.checked)} /> Techo</label>
-          </div>
+        <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
+          <Card className="p-2.5 flex flex-wrap gap-2 items-center">
+            <div className="inline-flex rounded-lg p-0.5" style={{ background: C.paper, border: `1px solid ${C.line}` }}>
+              {[["esquema", "◻ Esquemático"], ["realista", "◼ Realista"]].map(([k, label]) => (
+                <button key={k} onClick={() => setView3d(k)} className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                  style={{ background: view3d === k ? "#fff" : "transparent", color: view3d === k ? C.ink : C.gray, boxShadow: view3d === k ? "0 1px 3px rgba(16,32,43,.12)" : "none" }}>{label}</button>
+              ))}
+            </div>
+            <div className="w-px h-6 mx-1" style={{ background: C.line }} />
+            {[["OSB", osb3d, setOsb3d], ["Lana", lana3d, setLana3d], ["Techo", roof3d, setRoof3d]].map(([label, val, set]) => (
+              <label key={label} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer text-xs font-medium"
+                style={{ background: val ? C.blueSoft : C.paper, color: val ? C.blueDark : C.gray, border: `1px solid ${val ? "transparent" : C.line}` }}>
+                <input type="checkbox" checked={val} onChange={(e) => set(e.target.checked)} /> {label}
+              </label>
+            ))}
+          </Card>
           {walls.length === 0 && (
-            <div className="text-sm" style={{ color: C.gray }}>Trazá muros en la pestaña Plano o tocá "Cargar ejemplo" para ver el modelo 3D.</div>
+            <EmptyState icon="🧊" title="Sin modelo para mostrar" hint='Trazá muros en la pestaña Plano (o cargá un ejemplo) para ver el modelo 3D.'
+              action={<Btn variant="success" onClick={() => { loadExample(); setTab("plano"); }}>✨ Cargar ejemplo</Btn>} />
           )}
-          <div ref={mount3d} className="w-full rounded shadow overflow-hidden" style={{ border: "1px solid #D8D5CC", minHeight: 340, background: view3d === "realista" ? "#bfd6ea" : "#FCFBF8" }} />
-          <div className="text-xs" style={{ color: C.gray }}>
-            Arrastrá para orbitar · pellizcá (o rueda) para acercar. <b>Esquemático</b>: estructura con cajas de esquina y dinteles en azul, OSB translúcido, instalaciones en rojo (eléctrica) y celeste (agua). <b>Realista</b>: acero galvanizado, OSB con textura, chapa, lana amarilla y sombras. Destildá OSB para ver el esqueleto, tildá Lana para ver la aislación en la cavidad.
+          <div ref={mount3d} className="w-full rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}`, boxShadow: "0 1px 2px rgba(16,32,43,.04), 0 6px 22px rgba(16,32,43,.08)", minHeight: 340, background: view3d === "realista" ? "#bfd6ea" : "#FCFBF8" }} />
+          <div className="text-xs px-3 py-2.5 rounded-xl" style={{ color: C.gray, background: "#fff", border: `1px solid ${C.line}` }}>
+            <b style={{ color: C.ink }}>Cómo navegar:</b> arrastrá para orbitar · rueda/pellizco para acercar. <b style={{ color: C.ink }}>Esquemático</b>: estructura con cajas de esquina y dinteles en azul, OSB translúcido, instalaciones en rojo (eléctrica) y celeste (agua). <b style={{ color: C.ink }}>Realista</b>: acero galvanizado, OSB con textura, chapa, lana amarilla y sombras.
           </div>
         </div>
       )}
 
       {/* ================= TAB CORTE ================= */}
       {tab === "corte" && (
-        <div className="p-3 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="p-3 md:p-4 flex flex-col gap-4 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
             {[
               [PGC, mlPGC, result.packing[PGC].bars, mlPGC * RULES.kgPGC, result.packing[PGC].scrap],
               [PGU, mlPGU, result.packing[PGU].bars, mlPGU * RULES.kgPGU, result.packing[PGU].scrap],
             ].map(([perfil, ml, bars, kg, scrap]) => (
-              <div key={perfil} className="rounded p-3" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                <div className="text-xs font-semibold" style={{ color: C.gray }}>{perfil}</div>
-                <div className="text-xl font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{ml.toFixed(1)} ml</div>
-                <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                  {bars} barras 6 m · {kg.toFixed(0)} kg
-                </div>
-                <div className="text-xs" style={{ color: scrap > 12 ? C.red : C.green }}>scrap {scrap.toFixed(1)}%</div>
-              </div>
+              <Card key={perfil} className="p-3.5" style={{ borderTop: `3px solid ${C.blue}` }}>
+                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.gray }}>{perfil}</div>
+                <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{ml.toFixed(1)} <span className="text-sm font-bold" style={{ color: C.gray }}>ml</span></div>
+                <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>{bars} barras 6 m · {kg.toFixed(0)} kg</div>
+                <Chip color={scrap > 12 ? C.red : C.green} className="mt-1.5">scrap {scrap.toFixed(1)}%</Chip>
+              </Card>
             ))}
-            <div className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.osb}` }}>
-              <div className="text-xs font-semibold" style={{ color: C.osb }}>Placas OSB 1,22 × 2,44</div>
-              <div className="text-xl font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{result.osbPlan.sheets.length + result.osbRoofSheets} un</div>
-              <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                Muros: {result.osbPlan.sheets.length} (plan de corte) · Techo: {result.osbRoofSheets} (por área)
-              </div>
-              <div className="text-xs" style={{ color: C.gray }}>Aprovechamiento {result.osbPlan.util.toFixed(0)}% · planilla en Fabricación</div>
-            </div>
-            <div className="rounded p-3" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-              <div className="text-xs font-semibold" style={{ color: C.gray }}>Chapa de techo</div>
-              <div className="text-xl font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{totalChapas} un</div>
+            <Card className="p-3.5" style={{ borderTop: `3px solid ${C.osb}` }}>
+              <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.osb }}>Placas OSB 1,22 × 2,44</div>
+              <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{result.osbPlan.sheets.length + result.osbRoofSheets} <span className="text-sm font-bold" style={{ color: C.gray }}>un</span></div>
+              <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>Muros: {result.osbPlan.sheets.length} · Techo: {result.osbRoofSheets}</div>
+              <Chip color={C.green} className="mt-1.5">aprov. {result.osbPlan.util.toFixed(0)}%</Chip>
+            </Card>
+            <Card className="p-3.5" style={{ borderTop: `3px solid ${C.gray}` }}>
+              <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.gray }}>Chapa de techo</div>
+              <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{totalChapas} <span className="text-sm font-bold" style={{ color: C.gray }}>un</span></div>
               {result.chapas.map((ch, i) => (
-                <div key={i} className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                  {ch.cant} × {ch.largo.toFixed(2)} m (a medida)
-                </div>
+                <div key={i} className="text-xs font-mono" style={{ color: C.ink }}>{ch.cant} × {ch.largo.toFixed(2)} m (a medida)</div>
               ))}
-              {totalChapas === 0 && <div className="text-xs" style={{ color: C.gray }}>Sin paños de techo</div>}
-            </div>
-            <div className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.lana}` }}>
-              <div className="text-xs font-semibold" style={{ color: C.lana }}>Lana de vidrio 100 mm</div>
-              <div className="text-xl font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>{result.lanaRolls} rollos</div>
-              <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                Muros: {result.lanaWallM2.toFixed(0)} m² · Techo: {result.lanaRoofM2.toFixed(0)} m²
+              {totalChapas === 0 && <div className="text-xs mt-1" style={{ color: C.gray }}>Sin paños de techo</div>}
+            </Card>
+            <Card className="p-3.5" style={{ borderTop: `3px solid ${C.lana}` }}>
+              <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.lana }}>Lana de vidrio 100 mm</div>
+              <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{result.lanaRolls} <span className="text-sm font-bold" style={{ color: C.gray }}>rollos</span></div>
+              <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>Muros: {result.lanaWallM2.toFixed(0)} m² · Techo: {result.lanaRoofM2.toFixed(0)} m²</div>
+              <div className="text-[11px] mt-0.5" style={{ color: C.gray }}>Rollo 1,20 × 18,00 m · +5% desperdicio</div>
+            </Card>
+            <Card className="p-3.5" style={{ borderTop: `3px solid ${C.elec}` }}>
+              <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.elec }}>Instalaciones (previsión)</div>
+              <div className="text-xs font-mono mt-1.5 flex flex-col gap-0.5" style={{ color: C.ink }}>
+                <span>⚡ {result.instal.cajas} cajas · ~{Math.ceil(result.instal.corrugadoML)} ml corrugado</span>
+                <span>💧 {result.instal.aguaPts} ptos agua · ~{result.instal.pexML} ml PEX</span>
+                <span>🕳 {result.instal.desagues} desagües · ~{result.instal.pvcML} ml PVC</span>
               </div>
-              <div className="text-xs" style={{ color: C.gray }}>Rollo 1,20 × 18,00 m · +5% desperdicio</div>
-            </div>
-            <div className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.elec}` }}>
-              <div className="text-xs font-semibold" style={{ color: C.elec }}>Instalaciones (previsión)</div>
-              <div className="text-xs mt-1" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                ⚡ {result.instal.cajas} cajas · ~{Math.ceil(result.instal.corrugadoML)} ml corrugado
-              </div>
-              <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                💧 {result.instal.aguaPts} ptos agua · ~{result.instal.pexML} ml PEX (F+C)
-              </div>
-              <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                🕳 {result.instal.desagues} desagües · ~{result.instal.pvcML} ml PVC
-              </div>
-              <div className="text-xs" style={{ color: C.gray }}>Estimado para compra — verificar con plano de instalaciones</div>
-            </div>
+              <div className="text-[11px] mt-1" style={{ color: C.gray }}>Estimado — verificar con plano de instalaciones</div>
+            </Card>
           </div>
 
           {vincha && walls.length > 0 && (
-            <div className="rounded p-3 text-sm" style={{ background: C.blueSoft, border: `1px solid ${C.blue}` }}>
-              <span className="font-semibold">{TUBO}:</span>{" "}
-              <span style={{ fontFamily: "ui-monospace, monospace" }}>{result.tuboML.toFixed(1)} ml</span>
-              {" "}— armada como cajón (2 PGU + 2 PGC por tramo) y murito de carga de 0,50 m, ambos incluidos en el despiece.
+            <div className="rounded-xl p-3 text-sm flex items-start gap-2" style={{ background: C.blueSoft }}>
+              <span className="text-base leading-none mt-0.5">🏗️</span>
+              <div style={{ color: C.chrome }}>
+                <span className="font-bold" style={{ color: C.blueDark }}>{TUBO}:</span>{" "}
+                <span className="font-mono font-bold">{result.tuboML.toFixed(1)} ml</span>
+                {" "}— armada como cajón (2 PGU + 2 PGC por tramo) y murito de carga de 0,50 m, ambos incluidos en el despiece.
+              </div>
             </div>
           )}
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-bold">Lista de corte</div>
-              <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: C.blue, color: "#fff" }} onClick={exportCSV}>
-                ⬇ Exportar CSV
-              </button>
-            </div>
-            <div className="rounded overflow-hidden" style={{ border: "1px solid #E2E0D8" }}>
-              <table className="w-full text-xs" style={{ fontFamily: "ui-monospace, monospace" }}>
+            <SectionTitle count={result.cutList.length} right={<Btn variant="primary" size="sm" onClick={exportCSV}>⬇ Exportar CSV</Btn>}>Lista de corte</SectionTitle>
+            <Card className="overflow-hidden" style={{ padding: 0 }}>
+              <table className="w-full text-xs font-mono">
                 <thead>
                   <tr style={{ background: C.chrome, color: "#fff" }}>
-                    <th className="text-left px-2 py-2">Perfil</th>
-                    <th className="text-right px-2 py-2">Largo</th>
-                    <th className="text-right px-2 py-2">Cant.</th>
-                    <th className="text-left px-2 py-2">Uso</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Perfil</th>
+                    <th className="text-right px-3 py-2.5 font-semibold">Largo</th>
+                    <th className="text-right px-3 py-2.5 font-semibold">Cant.</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Uso</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.cutList.map((r, i) => (
-                    <tr key={i} style={{ background: i % 2 ? "#fff" : "#F3F2EC" }}>
-                      <td className="px-2 py-1">{r.perfil}</td>
-                      <td className="px-2 py-1 text-right font-bold">{r.largo.toFixed(2)} m</td>
-                      <td className="px-2 py-1 text-right">{r.cant}</td>
-                      <td className="px-2 py-1" style={{ color: C.gray }}>{[...r.usos].join(" / ")}</td>
+                    <tr key={i} style={{ background: i % 2 ? "#fff" : "#F7F8FA" }}>
+                      <td className="px-3 py-1.5">{r.perfil}</td>
+                      <td className="px-3 py-1.5 text-right font-bold" style={{ color: C.blue }}>{r.largo.toFixed(2)} m</td>
+                      <td className="px-3 py-1.5 text-right font-bold">{r.cant}</td>
+                      <td className="px-3 py-1.5" style={{ color: C.gray }}>{[...r.usos].join(" / ")}</td>
                     </tr>
                   ))}
                   {result.cutList.length === 0 && (
-                    <tr><td colSpan={4} className="px-2 py-3 text-center" style={{ color: C.gray }}>Sin piezas todavía — trazá muros en el Plano.</td></tr>
+                    <tr><td colSpan={4} className="px-3 py-4 text-center" style={{ color: C.gray }}>Sin piezas todavía — trazá muros en el Plano.</td></tr>
                   )}
                 </tbody>
               </table>
-            </div>
+            </Card>
             <div className="text-xs mt-2" style={{ color: C.gray }}>
-              Optimización por First-Fit Decreasing en barras de 6,00 m. Pesos estimados: PGC {RULES.kgPGC} kg/ml · PGU {RULES.kgPGU} kg/ml. OSB calculado por superficie neta (descontando vanos) + 10% desperdicio. Verificar despiece de dinteles, nudos y solapes de chapa con la documentación de obra antes de cortar.
+              Optimización por First-Fit Decreasing en barras de 6,00 m. Pesos estimados: PGC {RULES.kgPGC} kg/ml · PGU {RULES.kgPGU} kg/ml. OSB por superficie neta (descontando vanos) + 10% desperdicio. Verificar despiece de dinteles, nudos y solapes de chapa con la documentación de obra antes de cortar.
             </div>
           </div>
         </div>
@@ -1895,22 +1894,21 @@ export default function PanelizadorSF() {
 
       {/* ================= TAB FABRICACIÓN ================= */}
       {tab === "fabricar" && (
-        <div className="p-3 flex flex-col gap-4">
+        <div className="p-3 md:p-4 flex flex-col gap-4 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
           {result.panels.length === 0 && result.roofInfo.length === 0 ? (
-            <div className="text-sm" style={{ color: C.gray }}>Trazá muros y techos en la pestaña Plano para generar las fichas de fábrica.</div>
+            <EmptyState icon="🏭" title="Todavía no hay fichas" hint='Trazá muros y techos en la pestaña Plano para generar las fichas de fábrica y la secuencia de montaje.'
+              action={<Btn variant="success" onClick={() => { loadExample(); setTab("plano"); }}>✨ Cargar ejemplo</Btn>} />
           ) : (
             <>
               <div className="flex items-center justify-between">
-                <div className="font-bold">Fichas de fábrica + montaje en obra</div>
-                <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: C.blue, color: "#fff" }} onClick={() => window.print()}>
-                  🖨 Imprimir
-                </button>
+                <h2 className="text-base font-bold" style={{ color: C.ink }}>Fichas de fábrica + montaje en obra</h2>
+                <Btn variant="primary" onClick={() => window.print()}>🖨 Imprimir</Btn>
               </div>
 
               {/* secuencia de montaje */}
-              <div className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.chrome}` }}>
-                <div className="font-semibold text-sm mb-2">Secuencia de montaje en obra</div>
-                <ol className="text-sm flex flex-col gap-1" style={{ listStyle: "decimal", paddingLeft: "1.2rem" }}>
+              <Card className="p-3.5" style={{ borderLeft: `3px solid ${C.chrome}` }}>
+                <SectionTitle>🪜 Secuencia de montaje en obra</SectionTitle>
+                <ol className="text-sm flex flex-col gap-1.5" style={{ listStyle: "decimal", paddingLeft: "1.2rem", color: C.ink }}>
                   <li>Replanteo sobre platea: marcar ejes de muros, verificar escuadras y niveles.</li>
                   <li>Montar paneles en orden {result.panels.length > 0 ? `${result.panels[0].id} → ${result.panels[result.panels.length - 1].id}` : ""}, comenzando por una esquina. Aplomar y apuntalar cada panel antes de fijar el siguiente.</li>
                   <li>Vincular esquinas (montante en caja) y encuentros en T según marcas azules del plano.</li>
@@ -1923,15 +1921,15 @@ export default function PanelizadorSF() {
                   {result.roofInfo.length > 0 && <li>Montar paneles de techo ({result.roofInfo.map((r) => r.tag).join(", ")}) con apuntalamiento, colocar OSB de techo trabado entre paneles y fijar chapa respetando solapes según pendiente.</li>}
                   <li>Control final: plomos, anclajes a platea y rigidización completa antes de retirar puntales.</li>
                 </ol>
-              </div>
+              </Card>
 
               {/* planilla de corte OSB optimizada */}
               {result.osbPlan.sheets.length > 0 && (
-                <div className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.osb}` }}>
+                <Card className="p-3.5" style={{ borderLeft: `3px solid ${C.osb}` }}>
                   <div className="flex items-baseline justify-between mb-2 flex-wrap gap-1">
-                    <div className="font-semibold text-sm" style={{ color: C.osb }}>Planilla de corte OSB — muros</div>
-                    <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace", color: C.ink }}>
-                      {result.osbPlan.sheets.length} placas 1,22×2,44 · {result.osbPlan.totalPieces} piezas · aprovechamiento {result.osbPlan.util.toFixed(0)}%
+                    <div className="font-bold text-sm" style={{ color: C.osb }}>🪵 Planilla de corte OSB — muros</div>
+                    <div className="text-xs font-mono" style={{ color: C.ink }}>
+                      {result.osbPlan.sheets.length} placas 1,22×2,44 · {result.osbPlan.totalPieces} piezas · aprov. {result.osbPlan.util.toFixed(0)}%
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -1962,7 +1960,7 @@ export default function PanelizadorSF() {
                   <div className="text-xs mt-2" style={{ color: C.gray }}>
                     Cada rectángulo es una placa estándar y muestra qué piezas salen de ella, con el código que pide cada panel ({"P01-A, P02-C…"}). ↻ = pieza rotada 90°. El recorte de martillo se hace después, sobre la pieza ya cortada, según el instructivo de cada ficha. El OSB de techo se compra por área aparte ({result.osbRoofSheets} placas). La lista completa sale en el CSV de la pestaña Corte.
                   </div>
-                </div>
+                </Card>
               )}
 
               {/* fichas por panel de muro */}
@@ -1975,14 +1973,14 @@ export default function PanelizadorSF() {
                 }
                 const rows = Object.values(agg).sort((a, b) => a.perfil.localeCompare(b.perfil) || b.largo - a.largo);
                 return (
-                  <div key={p.id} className="rounded p-3" style={{ background: "#fff", border: "1px solid #E2E0D8" }}>
-                    <div className="flex items-baseline justify-between mb-1">
-                      <div className="font-bold" style={{ fontFamily: "ui-monospace, monospace" }}>FICHA {p.id}</div>
-                      <div className="text-xs" style={{ color: C.gray, fontFamily: "ui-monospace, monospace" }}>{p.len.toFixed(2)} × {(vincha ? RULES.panelHeight + RULES.vigaTuboH + RULES.vinchaHeight : RULES.panelHeight).toFixed(2)} m{vincha ? " (panel + viga tubo + murito)" : ""} · muro #{p.wallId}</div>
+                  <Card key={p.id} className="p-3.5 fade-in">
+                    <div className="flex items-center justify-between mb-2">
+                      <Chip color={C.ink} soft={false} className="text-xs px-2.5 py-1">FICHA {p.id}</Chip>
+                      <div className="text-xs font-mono" style={{ color: C.gray }}>{p.len.toFixed(2)} × {(vincha ? RULES.panelHeight + RULES.vigaTuboH + RULES.vinchaHeight : RULES.panelHeight).toFixed(2)} m{vincha ? " · panel + viga tubo + murito" : ""} · muro #{p.wallId}</div>
                     </div>
-                    <table className="w-full text-xs" style={{ fontFamily: "ui-monospace, monospace" }}>
+                    <table className="w-full text-xs font-mono">
                       <thead>
-                        <tr style={{ borderBottom: `1px solid ${C.grid}`, color: C.gray }}>
+                        <tr style={{ borderBottom: `1px solid ${C.line}`, color: C.gray }}>
                           <th className="text-left py-1">Pieza</th>
                           <th className="text-left py-1">Perfil</th>
                           <th className="text-right py-1">Largo</th>
@@ -2065,19 +2063,22 @@ export default function PanelizadorSF() {
                       {!p.first ? " El borde inicial recibe el solape del panel anterior: dejar esa franja libre." : ""}
                       {" "}Rotular "{p.id}" en la solera superior antes de despachar.
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
 
               {/* fichas de techo */}
               {result.roofInfo.map((r) => (
-                <div key={r.tag} className="rounded p-3" style={{ background: "#fff", border: `1px solid ${C.gray}` }}>
-                  <div className="font-bold mb-1" style={{ fontFamily: "ui-monospace, monospace" }}>FICHA {r.tag} — techo {r.slope}%</div>
-                  <div className="text-xs" style={{ fontFamily: "ui-monospace, monospace" }}>
+                <Card key={r.tag} className="p-3.5 fade-in" style={{ borderLeft: `3px solid ${C.gray}` }}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Chip color={C.gray} soft={false} className="text-xs px-2.5 py-1">FICHA {r.tag}</Chip>
+                    <span className="text-sm font-bold" style={{ color: C.ink }}>Techo {r.slope}%</span>
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: C.ink }}>
                     {r.n} paneles de {r.slopeLen.toFixed(2)} × {r.pw.toFixed(2)} m · {r.cabios} cabios PGC de {(r.slopeLen - RULES.studDeduct).toFixed(2)} m + 2 cabezales PGU de {r.pw.toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
                   </div>
-                  <div className="text-xs mt-1" style={{ color: C.osb }}>OSB de techo: trabar juntas entre paneles adyacentes y dejar vuelo de 0,30 m para coser las uniones en obra. Rotular paneles {r.tag}-1 a {r.tag}-{r.n}.</div>
-                </div>
+                  <div className="text-xs mt-1.5" style={{ color: C.osb }}>OSB de techo: trabar juntas entre paneles adyacentes y dejar vuelo de 0,30 m para coser las uniones en obra. Rotular paneles {r.tag}-1 a {r.tag}-{r.n}.</div>
+                </Card>
               ))}
             </>
           )}

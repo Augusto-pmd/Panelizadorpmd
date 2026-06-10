@@ -135,6 +135,18 @@ export function Field({ label, children, className = "" }) {
   );
 }
 
+// ---- Estado vacío ----
+export function EmptyState({ icon = "📐", title, hint, action }) {
+  return (
+    <Card className="px-6 py-10 text-center fade-in">
+      <div className="text-4xl mb-2">{icon}</div>
+      <div className="font-bold text-base" style={{ color: C.ink }}>{title}</div>
+      {hint && <div className="text-sm mt-1" style={{ color: C.gray }}>{hint}</div>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </Card>
+  );
+}
+
 // ---- Input numérico estilizado ----
 export function NumInput({ className = "", style, ...rest }) {
   return (
