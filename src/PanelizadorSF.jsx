@@ -4,7 +4,7 @@ import {
   C, RULES, FIXTYPES, PGC, PGU, TUBO, SNAP_PX,
   slugify, parseDxf, dist, projectOnSegment, detectJoints,
   panelizeWall, osbLayoutForPanel, osbPiecesForPanel, packOsbSheets, buildAll,
-} from "./lib/engine.js";
+} from "./lib/engine";
 // ---------------- componente principal ----------------
 export default function PanelizadorSF() {
   const [tab, setTab] = useState("plano");

@@ -5,7 +5,7 @@ import {
   osbLayoutForPanel,
   packOsbSheets,
   buildAll,
-} from "../engine.js";
+} from "../engine";
 
 // ppm = pixels por metro. Usamos 100 para que 1 m = 100 px (números redondos).
 const PPM = 100;
