@@ -3,7 +3,8 @@
 Herramienta de panelización: del plano (municipal, DXF o croquis) a paneles de fábrica con fichas, instructivo de corte de OSB, planilla optimizada y cómputo de materiales.
 
 ## Stack
-- React 18 + Vite. Componente único en `src/PanelizadorSF.jsx` (~2.400 líneas, a modularizar).
+- React 18 + Vite. UI en `src/PanelizadorSF.jsx`; motor puro (sin React/DOM) ya extraído a `src/lib/engine.js`.
+- Tests con Vitest en `src/lib/__tests__/` (`npm test`). Blindan las reglas constructivas PMD.
 - Three.js r128 (vista 3D, sin OrbitControls: órbita propia con pointer events).
 - Tailwind por CDN (en `index.html`). Colores custom van por `style` inline (paleta en const `C`).
 - Persistencia: `window.storage` (shim sobre localStorage en `src/main.jsx`). En producción migrará a Firestore (pmdsystem).

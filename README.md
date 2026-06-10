@@ -5,8 +5,15 @@ Del plano a la fábrica: trazado de muros sobre plano municipal o importación D
 ## Correr en local
 ```bash
 npm install
-npm run dev
+npm run dev      # servidor de desarrollo
+npm test         # tests del motor (reglas constructivas PMD)
+npm run build    # build de producción
 ```
+
+## Estructura
+- `src/lib/engine.js` — motor puro (panelización, corte de OSB, cómputo). Sin React ni DOM.
+- `src/lib/__tests__/` — tests Vitest que blindan las reglas PMD.
+- `src/PanelizadorSF.jsx` — UI (canvas del plano, fichas, 3D, planillas).
 
 ## Documentación
 Ver `CLAUDE.md`: reglas constructivas PMD, reglas de trabajo y roadmap.
