@@ -199,29 +199,163 @@ function OsbSVG() {
   );
 }
 
+function EncuentrosSVG() {
+  return (
+    <g>
+      <Lbl x={120} y={14} color={ink} size={8}>Tipos de encuentro entre paneles</Lbl>
+      {/* Doble */}
+      <Lbl x={42} y={40} color={blue}>Doble</Lbl>
+      <rect x={28} y={48} width={30} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={28} y={56} width={30} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <Lbl x={43} y={78} color={gray}>2 PGC</Lbl>
+      {/* Triple */}
+      <Lbl x={120} y={40} color={blue}>Triple (T)</Lbl>
+      <rect x={100} y={48} width={40} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={100} y={56} width={40} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={117} y={62} width={6} height={26} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <Lbl x={120} y={100} color={gray}>3 PGC · 1 rotado 90°</Lbl>
+      {/* Cuádruple */}
+      <Lbl x={198} y={40} color={blue}>Cruz</Lbl>
+      <rect x={178} y={50} width={40} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={178} y={64} width={40} height={6} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={189} y={44} width={6} height={32} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <rect x={201} y={44} width={6} height={32} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <Lbl x={198} y={92} color={gray}>4 PGC</Lbl>
+      <Lbl x={120} y={132} color={gray}>el panelizador arma el cajón según el nudo (esquina / T / cruz)</Lbl>
+      <Lbl x={120} y={150} color={gray}>conexión con ángulos A1/A2/A3 y tornillos Nº8</Lbl>
+    </g>
+  );
+}
+
+function CorteDiezSVG() {
+  return (
+    <g>
+      <Lbl x={120} y={14} color={ink} size={8}>“Corte de 10” en la solera del vano</Lbl>
+      {/* solera larga */}
+      <rect x={30} y={64} width={180} height={14} fill={soft} stroke={blue} strokeWidth={1.4} />
+      {/* cortes a 10 cm y pliegue */}
+      <line x1={58} y1={64} x2={58} y2={78} stroke={ink} strokeWidth={1.4} strokeDasharray="3 2" />
+      <line x1={182} y1={64} x2={182} y2={78} stroke={ink} strokeWidth={1.4} strokeDasharray="3 2" />
+      <path d="M30 64 L30 50 M30 64 L44 64" stroke={orange} strokeWidth={2} fill="none" />
+      <path d="M210 64 L210 50 M210 64 L196 64" stroke={orange} strokeWidth={2} fill="none" />
+      <Dim x1={30} y1={96} x2={58} y2={96} color={orange}>10</Dim>
+      <Dim x1={58} y1={96} x2={182} y2={96}>ancho vano</Dim>
+      <Dim x1={182} y1={96} x2={210} y2={96} color={orange}>10</Dim>
+      <Lbl x={120} y={126} color={gray}>largo total = ancho del vano + 20 cm</Lbl>
+      <Lbl x={120} y={144} color={orange}>alas plegadas 90° → pestañas que atornillan a jacks/king</Lbl>
+    </g>
+  );
+}
+
+function FijacionesSVG() {
+  return (
+    <g>
+      <Lbl x={120} y={14} color={ink} size={8}>Fijaciones y anclaje a fundación</Lbl>
+      {/* tornillo acero-acero */}
+      <circle cx={50} cy={45} r={7} fill="none" stroke={ink} strokeWidth={1.6} />
+      <line x1={50} y1={38} x2={50} y2={52} stroke={ink} strokeWidth={1.4} />
+      <line x1={43} y1={45} x2={57} y2={45} stroke={ink} strokeWidth={1.4} />
+      <Lbl x={50} y={68} color={gray}>Nº8 acero-acero</Lbl>
+      {/* paso en OSB */}
+      <rect x={95} y={36} width={60} height={18} fill="#F0DCAE" stroke={osb} strokeWidth={1.2} />
+      {[100, 110, 120, 130, 140, 150].map((x, i) => <circle key={i} cx={x} cy={45} r={1.6} fill={osb} />)}
+      <Lbl x={125} y={68} color={gray}>OSB: 150 mm borde / 300 mm campo</Lbl>
+      {/* anclaje a platea */}
+      <rect x={40} y={120} width={160} height={16} fill="#EEF1F5" stroke={gray} strokeWidth={1} />
+      <Lbl x={120} y={132} color={gray}>platea HºAº</Lbl>
+      <rect x={70} y={96} width={8} height={24} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <line x1={74} y1={104} x2={74} y2={132} stroke={ink} strokeWidth={2} />
+      <rect x={160} y={96} width={8} height={24} fill={soft} stroke={blue} strokeWidth={1.2} />
+      <line x1={164} y1={104} x2={164} y2={132} stroke={ink} strokeWidth={2} />
+      <Lbl x={120} y={154} color={gray}>varilla roscada química o fleje · esquinas y cada 1,2–1,5 m</Lbl>
+    </g>
+  );
+}
+
+// Tabla de perfiles más usados (IRAM-IAS U 500-205, acero ZAR280, galv. Z275)
+const PERFILES = [
+  ["PGC 90×0,89", "montante / jack / king", "90", "40", "17", "0,89", "1,50"],
+  ["PGC 100×0,89", "montante", "100", "40", "17", "0,89", "1,50"],
+  ["PGC 100×1,24", "montante de carga", "100", "40", "17", "1,24", "~2,0"],
+  ["PGC 140×1,24", "dintel / viga", "140", "40", "17", "1,24", "~2,6"],
+  ["PGC 200×2,00", "dintel / viga (luz grande)", "200", "44", "17", "2,00", "4,90"],
+  ["PGU 100×0,89", "solera", "102", "35", "—", "0,89", "1,22"],
+  ["PGU 100×1,24", "solera de carga", "103", "35", "—", "1,24", "1,68"],
+];
+
+function PerfilesTabla() {
+  return (
+    <Card className="overflow-hidden" style={{ padding: 0 }}>
+      <div className="px-3.5 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${line}` }}>
+        <Chip color={blue} soft={false} className="text-[10px] px-2 py-0.5">PGC · PGU</Chip>
+        <h3 className="text-sm font-bold" style={{ color: ink }}>Perfiles galvanizados (los más usados)</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs font-mono">
+          <thead>
+            <tr style={{ background: "#F7F8FA", color: gray }}>
+              <th className="text-left px-3 py-2">Designación</th>
+              <th className="text-left px-3 py-2">Uso típico</th>
+              <th className="text-right px-3 py-2">Alma</th>
+              <th className="text-right px-3 py-2">Ala</th>
+              <th className="text-right px-3 py-2">Labio</th>
+              <th className="text-right px-3 py-2">Esp.</th>
+              <th className="text-right px-3 py-2">kg/m</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PERFILES.map((r, i) => (
+              <tr key={i} style={{ borderTop: `1px solid ${line}` }}>
+                <td className="px-3 py-1.5 font-bold" style={{ color: r[0].startsWith("PGU") ? blue : ink }}>{r[0]}</td>
+                <td className="px-3 py-1.5" style={{ color: gray }}>{r[1]}</td>
+                <td className="px-3 py-1.5 text-right">{r[2]}</td>
+                <td className="px-3 py-1.5 text-right">{r[3]}</td>
+                <td className="px-3 py-1.5 text-right">{r[4]}</td>
+                <td className="px-3 py-1.5 text-right">{r[5]}</td>
+                <td className="px-3 py-1.5 text-right">{r[6]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-3.5 py-2 text-[11px]" style={{ color: gray, borderTop: `1px solid ${line}` }}>
+        Medidas en mm. Acero ZAR280 (fluencia 280 MPa), galvanizado Z275 (275 g/m²). PMD usa PGC 100×1,2 @400 y PGU 100×0,9.
+        Perforaciones de paso de instalaciones: primera a 300 mm del extremo, luego cada 600 mm.
+      </div>
+    </Card>
+  );
+}
+
 export default function DetallesView() {
   return (
     <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
       <Card className="p-3.5" style={{ borderLeft: `3px solid ${blue}` }}>
         <h2 className="text-base font-bold" style={{ color: ink }}>📚 Detalles constructivos — Steel Framing</h2>
         <p className="text-xs mt-1" style={{ color: gray }}>
-          Esquemas de referencia de los nudos y reglas que aplica el panelizador (montantes PGC @400, soleras PGU,
-          esquinas y T en caja, dinteles, viga tubo armada, arriostramiento y emplacado OSB). Guía rápida para fábrica y obra.
+          Esquemas y datos de referencia de los nudos y reglas que aplica el panelizador. Basado en la
+          <b> Enciclopedia del Steel Frame</b> (AD Barbieri) y la norma <b>IRAM-IAS U 500-205</b> (perfiles
+          galvanizados conformados en frío). Guía rápida para fábrica y obra.
         </p>
       </Card>
+
+      <PerfilesTabla />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Detail title="Perfiles PGC y PGU" tag="01" notes={["Montante: PGC (galera C) 100×1,2 con labios.", "Solera: PGU (U) 100×0,9, abraza al montante arriba y abajo.", "Inferior con alas hacia arriba contra platea; superior con alas hacia abajo."]}><PerfilesSVG /></Detail>
-        <Detail title="Modulación de montantes" tag="02" notes={["Montantes cada 400 mm (eje a eje).", "Largo exacto 3,00 m = media barra de 6 m → cero desperdicio.", "La modulación ordena vanos, instalaciones y emplacado."]}><ModulacionSVG /></Detail>
-        <Detail title="Esquina en caja" tag="03" notes={["Encuentro de muros con 2 PGC formando un cajón.", "Rigidiza la esquina y da apoyo al OSB de ambas caras.", "El muro continuo cubre el canto del que remata."]}><EsquinaSVG /></Detail>
-        <Detail title="Encuentro en T" tag="04" notes={["Donde un tabique encuentra un muro va un montante adicional.", "Recibe la descarga del tabique y permite atornillar ambas caras.", "El panelizador lo detecta automáticamente en los nudos."]}><TeeSVG /></Detail>
-        <Detail title="Dintel de vano" tag="05" notes={["Dintel PGC en caja con apoyo de 100 mm por lado.", "King studs de piso a techo; jack studs sostienen el dintel.", "Cripples siguen la modulación sobre el dintel y bajo el antepecho."]}><DintelSVG /></Detail>
+        <Detail title="Perfiles PGC y PGU" tag="01" notes={["Montante PGC (galera C): alma 100 · ala 40 · labio 17 · esp. 1,2 mm.", "Solera PGU (U): alma ~102 · ala 35; abraza al montante y la carga baja por aplastamiento.", "Inferior con alas hacia arriba contra platea; superior con alas hacia abajo."]}><PerfilesSVG /></Detail>
+        <Detail title="Modulación de montantes" tag="02" notes={["Estándar del manual: 400 ó 600 mm eje a eje (submúltiplo de 1,20 m). PMD usa 400.", "Largo exacto 3,00 m = media barra de 6 m → cero desperdicio.", "Perforaciones de paso: primera a 300 mm del extremo, luego cada 600 mm."]}><ModulacionSVG /></Detail>
+        <Detail title="Esquina — encuentro Doble" tag="03" notes={["Manual: encuentro Doble (D) = 2 PGC unidos por el alma (caja de esquina).", "Rigidiza la esquina y da apoyo al OSB de ambas caras.", "El muro continuo cubre el canto del que remata."]}><EsquinaSVG /></Detail>
+        <Detail title="Encuentro en T — Triple" tag="04" notes={["Manual: encuentro Triple (T) = 3 PGC, uno rotado 90° que ofrece su alma al tabique.", "Encuentro en cruz = Cuádruple (4 PGC) o dos Dobles separados el alma.", "El panelizador detecta el nudo automáticamente."]}><TeeSVG /></Detail>
+        <Detail title="Dintel de vano" tag="05" notes={["Dintel: 2 PGC enfrentados (viga cajón) + solera PGU; apoyo 100 mm/lado.", "King = montante + jacks de piso a dintel (cant. ≈ montantes interrumpidos ÷ 2).", "Solera del vano con “corte de 10”: largo = ancho + 20 cm, alas plegadas 90°.", "Cripples siguen la modulación sobre el dintel y bajo el antepecho."]}><DintelSVG /></Detail>
         <Detail title="Viga tubo + murito" tag="06" notes={["Viga tubo armada como cajón: PGU + 2 PGC + PGU.", "Murito de carga de 0,50 m encima, con modulación propia @400.", "Sale integrada al panel; altura total de fábrica ≈ 3,60 m."]}><VigaTuboSVG /></Detail>
-        <Detail title="Arriostramiento" tag="07" notes={["Cruz de San Andrés con flejes galvanizados a 45°.", "Atornillados a montantes y soleras, trabajan a tracción.", "El OSB estructural puede actuar como diafragma rigidizador."]}><ArriostraSVG /></Detail>
-        <Detail title="Emplacado OSB" tag="08" notes={["Placas 1,22×2,44 siempre trabadas; juntas nunca alineadas.", "Fila superior corrida ½ placa; cose panel + viga tubo + murito.", "Corte en martillo en vanos y solape de 0,30 m sobre el panel vecino."]}><OsbSVG /></Detail>
+        <Detail title="Arriostramiento en X" tag="07" notes={["Cruz de San Andrés con fleje/cinta galvanizada (mín. 32×0,84 mm) a 30–60°.", "Trabaja sólo a tracción: por eso van dos diagonales en X, pretensadas.", "Tf = W / cos α (a 45° ≈ 1,41·W). El OSB ≥15 mm puede actuar como diafragma."]}><ArriostraSVG /></Detail>
+        <Detail title="Emplacado OSB" tag="08" notes={["Placas 1,22×2,44 trabadas; juntas nunca alineadas (fila superior ½ placa).", "Fijación Nº8: 150 mm en bordes, 300 mm en el interior (campo).", "Corte en martillo en vanos y solape de 0,30 m sobre el panel vecino."]}><OsbSVG /></Detail>
+        <Detail title="Encuentros: D · T · X" tag="09" notes={["Doble (esquina): 2 PGC unidos por el alma.", "Triple (T): 3 PGC, el central rotado 90° da apoyo al tabique.", "Cuádruple (cruz): 4 PGC; el panelizador arma cada nudo según su tipo."]}><EncuentrosSVG /></Detail>
+        <Detail title="Corte de 10 (solera de vano)" tag="10" notes={["La solera del vano se corta con largo = ancho del vano + 20 cm.", "Se cortan las alas a 10 cm de cada extremo y se pliegan 90° hacia adentro.", "Esas pestañas atornillan a los jacks/king: unión articulada y estable."]}><CorteDiezSVG /></Detail>
+        <Detail title="Fijaciones y anclajes" tag="11" notes={["Tornillos autoperforantes Nº8 (Ø 3,8 mm) acero-acero; mín. 2 por unión.", "OSB: Nº8 @150 mm bordes / 300 mm campo. Yeso: Nº6 @300 mm.", "Anclaje a platea: varilla roscada química o fleje galvanizado, en esquinas y cada 1,2–1,5 m."]}><FijacionesSVG /></Detail>
       </div>
       <Card className="p-3 text-xs" style={{ color: gray }}>
-        Diagramas esquemáticos propios de PMD para uso interno. Verificar dimensionado de dinteles, vigas y arriostramiento
-        con el cálculo estructural y la documentación del proveedor antes de fabricar.
+        Diagramas esquemáticos propios de PMD basados en la <b>Enciclopedia del Steel Frame</b> (AD Barbieri) y el
+        <b> Manual de Ingeniería de Steel Framing</b> (ILAFA / R. Dannemann, base AISI). Verificar dimensionado de
+        dinteles, vigas y arriostramiento con el cálculo estructural y la documentación del proveedor antes de fabricar.
       </Card>
     </div>
   );
