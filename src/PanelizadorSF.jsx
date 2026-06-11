@@ -302,6 +302,18 @@ export default function PanelizadorSF() {
 
     const H = effRules.panelHeight;
     const topH = H + (vincha ? 0.6 : 0);
+    // altura de la cara inferior del techo en un punto (x,z) en metros — para que el muro crezca (tímpano)
+    const roofHeightAt = (wx, wz) => {
+      let h = topH;
+      for (const r of roofs) {
+        const rx = r.x / ppm, rz = r.y / ppm, rw = r.w / ppm, rh = r.h / ppm;
+        if (wx < rx - 0.05 || wx > rx + rw + 0.05 || wz < rz - 0.05 || wz > rz + rh + 0.05) continue;
+        const ang = Math.atan((r.slope || 0) / 100), rise = r.rise || 1;
+        const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
+        h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
+      }
+      return h;
+    };
 
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
     const consider = (x, z) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); };
@@ -393,6 +405,15 @@ export default function PanelizadorSF() {
           const x = Math.min(gx, L - 0.025);
           addProfile(g2, "y", effRules.vinchaHeight - 0.1, Math.max(0.025, x), y0 + effRules.vinchaHeight / 2, 0, mSteel);
           if (gx >= L) break;
+        }
+      }
+
+      // tímpano: el muro CRECE hasta la cara inferior del techo (montantes que suben con la pendiente)
+      if (roofs.length) {
+        for (let gx = 0; gx <= L + 1e-3; gx += effRules.studSpacing) {
+          const gxl = Math.min(gx, L);
+          const rHt = roofHeightAt(ax + ux * gxl, az + uz * gxl);
+          if (rHt > topH + 0.06) addProfile(g2, "y", rHt - topH, gxl, topH + (rHt - topH) / 2, 0, mSteel);
         }
       }
 
