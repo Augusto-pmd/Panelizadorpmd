@@ -29,6 +29,7 @@ export default function PanelizadorSF() {
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
   const [perfilSolera, setPerfilSolera] = useState("PGU 100×0.9");
   const [arriostrar, setArriostrar] = useState(false);
+  const [selWall, setSelWall] = useState(null); // muro seleccionado para editar su tipología
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
@@ -773,6 +774,9 @@ export default function PanelizadorSF() {
     setHover(null);
   }
 
+  function updateWallCfg(id, patch) {
+    setWalls((ws) => ws.map((w2) => (w2.id === id ? { ...w2, cfg: { ...(w2.cfg || {}), ...patch } } : w2)));
+  }
   function setWallLength(id, m) {
     if (!(m > 0.05)) return;
     setWalls((ws) => ws.map((w2) => {
@@ -951,9 +955,9 @@ export default function PanelizadorSF() {
       csv += `${r.perfil};${r.largo.toFixed(2).replace(".", ",")};${r.cant};${[...r.usos].join(" / ")}\n`;
     }
     csv += `\nResumen\n`;
-    for (const perfil of [result.perfiles.montante, result.perfiles.solera]) {
+    for (const perfil of Object.keys(result.packing)) {
       const p = result.packing[perfil];
-      csv += `${perfil};${p.totalML.toFixed(1).replace(".", ",")} ml;${p.bars} barras de 6 m;scrap ${p.scrap.toFixed(1).replace(".", ",")}%\n`;
+      csv += `${perfil};${p.totalML.toFixed(1).replace(".", ",")} ml;${p.bars} barras de 6 m;${p.kg.toFixed(0)} kg;scrap ${p.scrap.toFixed(1).replace(".", ",")}%\n`;
     }
     if (vincha) csv += `${TUBO};${result.tuboML.toFixed(1).replace(".", ",")} ml (perfiles ya incluidos en la lista de corte, junto al murito de carga 0,50 m)\n`;
     csv += `Placas OSB 1,22x2,44 muros;${result.osbPlan.sheets.length} un (plan de corte optimizado, aprovechamiento ${result.osbPlan.util.toFixed(0)}%)\n`;
@@ -1173,6 +1177,53 @@ export default function PanelizadorSF() {
             <span className="self-center" style={{ color: C.gray }}>PMD: PGC 100×1,2 · PGU 100×0,9 · 400 mm · rigidiza con OSB</span>
           </Card>
 
+          {/* ===== Propiedades del muro seleccionado (tipología por muro) ===== */}
+          {selWall != null && (() => {
+            const w2 = walls.find((x) => x.id === selWall);
+            if (!w2) return null;
+            const cfg = w2.cfg || {};
+            const Lm = (dist(w2.a, w2.b) / ppm).toFixed(2);
+            return (
+              <Card className="p-3 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Chip color={C.blue} soft={false} className="text-[10px] px-2 py-0.5">Muro #{w2.id}</Chip>
+                  <span className="text-sm font-bold" style={{ color: C.ink }}>{Lm} m — tipología</span>
+                  <button onClick={() => setSelWall(null)} className="ml-auto grid place-items-center rounded-lg" style={{ width: 28, height: 28, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
+                </div>
+                <div className="flex flex-wrap items-end gap-3 text-xs">
+                  <Field label="Montante">
+                    <select value={cfg.perfilMontante || ""} onChange={(e) => updateWallCfg(w2.id, { perfilMontante: e.target.value || undefined })} className="px-2 py-1.5 rounded-lg">
+                      <option value="">(global: {perfilMontante})</option>
+                      {CATALOGO_PGC.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Solera">
+                    <select value={cfg.perfilSolera || ""} onChange={(e) => updateWallCfg(w2.id, { perfilSolera: e.target.value || undefined })} className="px-2 py-1.5 rounded-lg">
+                      <option value="">(global: {perfilSolera})</option>
+                      {CATALOGO_PGU.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Modulación">
+                    <select value={cfg.studSpacing || ""} onChange={(e) => updateWallCfg(w2.id, { studSpacing: e.target.value ? parseFloat(e.target.value) : undefined })} className="px-2 py-1.5 rounded-lg">
+                      <option value="">(global: {(modul * 1000).toFixed(0)} mm)</option>
+                      <option value={0.4}>400 mm</option>
+                      <option value={0.6}>600 mm</option>
+                    </select>
+                  </Field>
+                  <Field label="Placa">
+                    <select value={cfg.placa || "OSB"} onChange={(e) => updateWallCfg(w2.id, { placa: e.target.value })} className="px-2 py-1.5 rounded-lg">
+                      {["OSB", "OSB doble", "Fenólico", "Roca de yeso", "Roca + OSB"].map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </Field>
+                  {Object.keys(cfg).length > 0 && (
+                    <Btn variant="ghost" size="sm" onClick={() => updateWallCfg(w2.id, { perfilMontante: undefined, perfilSolera: undefined, studSpacing: undefined, placa: undefined })}>↺ Volver a global</Btn>
+                  )}
+                </div>
+                <div className="text-[11px] mt-2" style={{ color: C.gray }}>Tocá otro muro (modo Editar) para cambiar su tipología. Vacío = usa la config global.</div>
+              </Card>
+            );
+          })()}
+
           {/* largo exacto del tramo en curso */}
           {mode === "muro" && pending && (
             <Card className="flex flex-wrap gap-2 items-center p-2.5 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
@@ -1243,7 +1294,7 @@ export default function PanelizadorSF() {
                 {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
                 {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Tocá la primera esquina del paño de techo (en planta). La pendiente se edita abajo.")}
                 {mode === "instal" && "Tocá sobre un muro para marcar un punto de instalación (toma por defecto). Cambiá tipo y altura en la lista de abajo."}
-                {mode === "editar" && "Agarrá y arrastrá: los vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés todos los muros que llegan a ella. Todo con snap de 5 cm."}
+                {mode === "editar" && "Tocá un muro para elegir su tipología (perfil, modulación, placa). Agarrá y arrastrá: vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés los muros que llegan a ella."}
                 {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
                 {mode === "calibrar" && (calPts.length < 2 ? `Tocá ${2 - calPts.length} punto${calPts.length === 1 ? "" : "s"} sobre una cota conocida del plano.` : "Ingresá la distancia real en metros y aplicá.")}
               </span>
@@ -1317,7 +1368,9 @@ export default function PanelizadorSF() {
               const pans = showStuds ? result.panels.filter((p) => p.wallId === w2.id) : [];
               return (
                 <g key={w2.id}>
-                  <polygon points={poly} fill="#E9EDF2" stroke={C.ink} strokeWidth={1.6 / zoom} strokeLinejoin="miter" />
+                  <polygon points={poly} fill={selWall === w2.id ? C.blueSoft : "#E9EDF2"} stroke={selWall === w2.id ? C.blue : C.ink} strokeWidth={(selWall === w2.id ? 2.4 : 1.6) / zoom} strokeLinejoin="miter"
+                    style={{ cursor: mode === "editar" ? "pointer" : undefined }}
+                    onPointerDown={mode === "editar" ? (e) => { e.stopPropagation(); setSelWall(w2.id); } : undefined} />
                   {/* montantes en planta (aparecen al acercar) */}
                   {pans.map((p) => p.studs.map((s, i) => {
                     const px = w2.a.x + ux * (p.a + s.x) * ppm, py = w2.a.y + uy * (p.a + s.x) * ppm;
@@ -1779,32 +1832,20 @@ export default function PanelizadorSF() {
                       }
                       return out;
                     })()}
-                    {/* placas OSB trabadas + corte en martillo en vanos */}
+                    {/* placas OSB como piezas distintas: las uniones (juntas) se ven */}
                     {showOsb && (
                       <g>
-                        {osbRows.map((row, ri) => {
-                          const yTop = ph - row.y2 * sc, yBot = ph - row.y1 * sc;
-                          return row.joints.map((x, i) => {
-                            let segs = [[yTop, yBot]];
-                            for (const o of p.ops) {
-                              if (x > o.lx1 + 0.02 && x < o.lx2 - 0.02) {
-                                const oT = ph - (o.sill + o.height) * sc, oB = ph - o.sill * sc;
-                                const next = [];
-                                for (const [s1, s2] of segs) {
-                                  if (oT > s1 + 1) next.push([s1, Math.min(s2, oT)]);
-                                  if (oB < s2 - 1) next.push([Math.max(s1, oB), s2]);
-                                }
-                                segs = next;
-                              }
-                            }
-                            return segs.map(([s1, s2], k) => (
-                              <line key={`o${ri}-${i}-${k}`} x1={x * sc} y1={s1} x2={x * sc} y2={s2} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
-                            ));
-                          });
+                        {osbPiecesForPanel(p, vincha, effRules).pieces.map((pc, i) => {
+                          const rx = pc.x1 * sc, ry = ph - pc.y2 * sc, rw = (pc.x2 - pc.x1) * sc, rh = (pc.y2 - pc.y1) * sc;
+                          return (
+                            <g key={`pl${i}`}>
+                              <rect x={rx} y={ry} width={rw} height={rh} fill={i % 2 ? "rgba(198,138,18,0.10)" : "rgba(198,138,18,0.18)"} stroke={C.osb} strokeWidth={1.6} />
+                              {rw > 22 && rh > 18 && (
+                                <text x={rx + rw / 2} y={ry + rh / 2 + 3} fontSize={9} textAnchor="middle" fill={C.osb} fontFamily="'JetBrains Mono', monospace" fontWeight="bold" opacity={0.9}>{pc.tag}</text>
+                              )}
+                            </g>
+                          );
                         })}
-                        {osbRows.length > 1 && (
-                          <line x1={0} y1={ph - effRules.osbH * sc} x2={pw} y2={ph - effRules.osbH * sc} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
-                        )}
                         {/* marcas de martillo en esquinas de vanos */}
                         {p.ops.map((o, i) => {
                           const m = 0.18 * sc;
@@ -1938,15 +1979,12 @@ export default function PanelizadorSF() {
       {tab === "corte" && (
         <div className="p-3 md:p-4 flex flex-col gap-4 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {[
-              [result.perfiles.montante, mlPGC, result.packing[result.perfiles.montante].bars, mlPGC * effRules.kgPGC, result.packing[result.perfiles.montante].scrap],
-              [result.perfiles.solera, mlPGU, result.packing[result.perfiles.solera].bars, mlPGU * effRules.kgPGU, result.packing[result.perfiles.solera].scrap],
-            ].map(([perfil, ml, bars, kg, scrap]) => (
-              <Card key={perfil} className="p-3.5" style={{ borderTop: `3px solid ${C.blue}` }}>
+            {Object.entries(result.packing).map(([perfil, p]) => (
+              <Card key={perfil} className="p-3.5" style={{ borderTop: `3px solid ${perfil.startsWith("PGU") ? C.gray : C.blue}` }}>
                 <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.gray }}>{perfil}</div>
-                <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{ml.toFixed(1)} <span className="text-sm font-bold" style={{ color: C.gray }}>ml</span></div>
-                <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>{bars} barras 6 m · {kg.toFixed(0)} kg</div>
-                <Chip color={scrap > 12 ? C.red : C.green} className="mt-1.5">scrap {scrap.toFixed(1)}%</Chip>
+                <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{p.totalML.toFixed(1)} <span className="text-sm font-bold" style={{ color: C.gray }}>ml</span></div>
+                <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>{p.bars} barras 6 m · {p.kg.toFixed(0)} kg</div>
+                <Chip color={p.scrap > 12 ? C.red : C.green} className="mt-1.5">scrap {p.scrap.toFixed(1)}%</Chip>
               </Card>
             ))}
             <Card className="p-3.5" style={{ borderTop: `3px solid ${C.osb}` }}>

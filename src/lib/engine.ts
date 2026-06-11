@@ -16,7 +16,7 @@
 // engine.js — orquestador + barrel. Re-exporta el motor modularizado
 // (rules, geometry, dxf, panelize, osb) para que la UI importe desde un solo lugar.
 
-import { FIXTYPES } from "./rules";
+import { FIXTYPES, CATALOGO_PGC, CATALOGO_PGU } from "./rules";
 import type { Rules } from "./rules";
 import { dist, detectJoints } from "./geometry";
 import { panelizeWall } from "./panelize";
@@ -46,7 +46,11 @@ export function buildAll(
   let panels = [];
   for (const w of walls) {
     const ops = openings.filter((o) => o.wallId === w.id);
-    panels = panels.concat(panelizeWall(w, ops, joints, ppm, vincha, R));
+    // tipología por muro: la config del muro (w.cfg) pisa la global
+    const cfg = (w as any).cfg;
+    const wr = cfg ? { ...R, ...cfg } : R;
+    const wp = panelizeWall(w, ops, joints, ppm, vincha, wr);
+    panels = panels.concat(wp.map((p) => ({ ...p, placa: cfg?.placa || (R as any).placa || "OSB" })));
   }
   panels = panels.map((p, i) => ({
     ...p,
@@ -138,9 +142,15 @@ export function buildAll(
   }
   const cutList = Object.values(agg).sort((a, b) => a.perfil.localeCompare(b.perfil) || b.largo - a.largo);
 
-  // ---- optimización en barras de 6 m (FFD)
-  const packing: Record<string, { bars: number; totalML: number; scrap: number }> = {};
-  for (const perfil of [R.perfilMontante, R.perfilSolera]) {
+  // ---- optimización en barras de 6 m (FFD), por cada perfil presente
+  const kgDe = (perfil: string): number => {
+    const c = [...CATALOGO_PGC, ...CATALOGO_PGU].find((p) => p.nombre === perfil);
+    if (c) return c.kg;
+    return perfil.startsWith("PGU") ? R.kgPGU : R.kgPGC;
+  };
+  const perfilesPresentes = [...new Set(cutList.map((c) => c.perfil))];
+  const packing: Record<string, { bars: number; totalML: number; scrap: number; kg: number }> = {};
+  for (const perfil of perfilesPresentes) {
     const items = [];
     for (const r of cutList.filter((c) => c.perfil === perfil)) {
       for (let i = 0; i < r.cant; i++) items.push(r.largo);
@@ -161,6 +171,7 @@ export function buildAll(
     packing[perfil] = {
       bars: bars.length,
       totalML,
+      kg: totalML * kgDe(perfil),
       scrap: bars.length ? Math.max(0, (1 - totalML / (bars.length * R.barLen)) * 100) : 0,
     };
   }
