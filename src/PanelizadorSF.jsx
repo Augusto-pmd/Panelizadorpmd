@@ -1391,6 +1391,27 @@ export default function PanelizadorSF() {
           {/* indicador de zoom */}
           <div className="absolute px-2 py-1 rounded-md text-[11px] font-mono" style={{ right: 10, bottom: 10, background: "rgba(255,255,255,.9)", color: C.gray, border: `1px solid ${C.line}` }}>{Math.round(zoom * 100)}%</div>
 
+          {/* cotas de la envolvente + superficie en vivo */}
+          {walls.length > 0 && (() => {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const w2 of walls) for (const p of [w2.a, w2.b]) {
+              minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+              minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+            }
+            const anchoM = (maxX - minX) / ppm, altoM = (maxY - minY) / ppm;
+            if (!(anchoM > 0.05 && altoM > 0.05)) return null;
+            return (
+              <div className="absolute flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-mono" style={{ left: 10, bottom: 10, background: "rgba(255,255,255,.92)", color: C.ink, border: `1px solid ${C.line}`, boxShadow: "0 2px 10px rgba(16,32,43,.1)" }}>
+                <span style={{ color: C.gray }}>▭</span>
+                <span className="font-bold">{anchoM.toFixed(2)} × {altoM.toFixed(2)} m</span>
+                <span style={{ color: C.gray }}>·</span>
+                <span title="superficie de la envolvente (bounding box)">{(anchoM * altoM).toFixed(1)} m²</span>
+                <span style={{ color: C.gray }}>·</span>
+                <span title="perímetro de muros">{totalMuros.toFixed(1)} ml</span>
+              </div>
+            );
+          })()}
+
           {/* estado vacío */}
           {walls.length === 0 && roofs.length === 0 && !bg && (
             <div className="absolute inset-0 grid place-items-center pointer-events-none">
