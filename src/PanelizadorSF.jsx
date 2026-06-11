@@ -841,6 +841,17 @@ export default function PanelizadorSF() {
     setHover(null);
   }
 
+  function fitView() {
+    let minX = 1e12, maxX = -1e12, minY = 1e12, maxY = -1e12;
+    for (const w of walls) for (const p of [w.a, w.b]) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    for (const r of roofs) { minX = Math.min(minX, r.x); maxX = Math.max(maxX, r.x + r.w); minY = Math.min(minY, r.y); maxY = Math.max(maxY, r.y + r.h); }
+    if (bgDims) { minX = Math.min(minX, bgDims.x); maxX = Math.max(maxX, bgDims.x + bgDims.w); minY = Math.min(minY, bgDims.y); maxY = Math.max(maxY, bgDims.y + bgDims.h); }
+    if (minX > maxX) { setZoom(1); setPan({ x: 0, y: 0 }); return; }
+    const bw = Math.max(maxX - minX, 1), bh = Math.max(maxY - minY, 1);
+    const z = Math.max(0.4, Math.min(4, 0.88 * Math.min(VB_W / bw, VB_H / bh)));
+    setZoom(z);
+    setPan({ x: (minX + maxX) / 2 - VB_W / 2, y: (minY + maxY) / 2 - VB_H / 2 });
+  }
   function updateWallCfg(id, patch) {
     setWalls((ws) => ws.map((w2) => (w2.id === id ? { ...w2, cfg: { ...(w2.cfg || {}), ...patch } } : w2)));
   }
@@ -1786,6 +1797,7 @@ export default function PanelizadorSF() {
           <div className="absolute flex flex-col gap-1.5" style={{ right: 10, top: 10 }}>
             <IconBtn icon="＋" hint="Acercar (+)" onClick={() => setZoom((z) => Math.min(4, z * 1.25))} />
             <IconBtn icon="－" hint="Alejar (−)" onClick={() => setZoom((z) => Math.max(0.4, z / 1.25))} />
+            <IconBtn icon="⤢" hint="Ajustar a contenido" onClick={fitView} />
             <IconBtn icon="⌖" hint="Centrar y resetear (0)" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} />
           </div>
 
