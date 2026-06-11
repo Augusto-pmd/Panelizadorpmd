@@ -988,8 +988,6 @@ export default function PanelizadorSF() {
   }
 
   const totalMuros = walls.reduce((s, w) => s + dist(w.a, w.b) / ppm, 0);
-  const mlPGC = result.packing[result.perfiles.montante].totalML;
-  const mlPGU = result.packing[result.perfiles.solera].totalML;
   const totalChapas = result.chapas.reduce((s, c) => s + c.cant, 0);
 
   const w = VB_W / zoom, h = VB_H / zoom;
