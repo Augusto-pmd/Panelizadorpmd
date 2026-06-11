@@ -129,7 +129,7 @@ export default function PanelizadorSF() {
       if (e.key === "Enter" && typedLen) { e.preventDefault(); commitTypedLen(); return; }
     }
     if (tab !== "plano") return;
-    const toolKeys = { m: "muro", r: "rect", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
+    const toolKeys = { m: "muro", r: "rect", v: "vano", t: "techo", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
     if (toolKeys[k]) { setMode(toolKeys[k]); setPending(null); setPendingRoof(null); setPendingRect(null); if (k === "c") setCalPts([]); return; }
     if (e.key === "+" || e.key === "=") { setZoom((z) => Math.min(4, z * 1.25)); return; }
@@ -1203,7 +1203,7 @@ export default function PanelizadorSF() {
     setWalls(ws);
     setOpenings(os);
     setRoofs(rf);
-    setFixtures(fx);
+    setFixtures([]);
     setPending(null);
     setPendingRoof(null);
   }
@@ -1320,7 +1320,6 @@ export default function PanelizadorSF() {
         >
           {[
             ["plano", "Plano", "📐", null],
-            ["electrica", "Eléctrica", "⚡", fixtures.length || null],
             ["paneles", "Paneles", "🧱", result.panels.length + result.roofInfo.reduce((s, r) => s + r.n, 0)],
             ["v3d", "Vista 3D", "🧊", null],
             ["corte", "Corte", "✂️", null],
@@ -1382,7 +1381,6 @@ export default function PanelizadorSF() {
               { k: "rect", icon: "⬛", label: "Habitación", color: C.blue, key: "R" },
               { k: "vano", icon: "▢", label: "Vano", color: C.orange, key: "V" },
               { k: "techo", icon: "⛰", label: "Techo", color: C.gray, key: "T" },
-              { k: "instal", icon: "⚡", label: "Instalación", color: C.elec, key: "I" },
             ].map((t) => (
               <ToolButton key={t.k} icon={t.icon} label={t.label} active={mode === t.k} color={t.color}
                 hint={`${t.label} · tecla ${t.key}`}
@@ -2284,74 +2282,6 @@ export default function PanelizadorSF() {
                 ))}
               </div>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ================= TAB ELÉCTRICA ================= */}
-      {tab === "electrica" && (
-        <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1100 }}>
-          <Card className="p-3.5" style={{ borderLeft: `3px solid ${C.elec}` }}>
-            <h2 className="text-base font-bold" style={{ color: C.ink }}>⚡ Plano de instalaciones</h2>
-            <p className="text-xs mt-1" style={{ color: C.gray }}>
-              Poné las bocas en el <b>Plano</b> con la herramienta ⚡ Instalación. Acá las ves <b>por muro, a su altura real</b>, corregís medidas y sabés dónde se conecta cada caja. Eléctrica en rojo · agua en celeste.
-            </p>
-          </Card>
-          {walls.filter((w) => fixtures.some((f) => f.wallId === w.id)).map((w) => {
-            const fxs = fixtures.filter((f) => f.wallId === w.id).sort((a, b) => a.offset - b.offset);
-            const L = dist(w.a, w.b) / ppm;
-            const sc = Math.min(120, Math.max(34, 760 / Math.max(1, L)));
-            const H = effRules.panelHeight;
-            const pw = L * sc, ph = H * sc;
-            return (
-              <Card key={w.id} className="p-3.5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Chip color={C.elec} soft={false} className="text-[10px] px-2 py-0.5">Muro #{w.id}</Chip>
-                  <span className="text-sm font-bold" style={{ color: C.ink }}>{L.toFixed(2)} m · {fxs.length} boca{fxs.length === 1 ? "" : "s"}</span>
-                </div>
-                <div className="flex gap-5 flex-wrap items-start">
-                  <div className="overflow-x-auto">
-                    <svg viewBox={`-6 -18 ${pw + 12} ${ph + 36}`} style={{ width: Math.min(pw + 12, 700), maxWidth: "100%" }}>
-                      <rect x={0} y={0} width={pw} height={ph} fill="#FAFAF7" stroke={C.ink} strokeWidth={2} />
-                      <line x1={0} y1={ph} x2={pw} y2={ph} stroke={C.ink} strokeWidth={3} />
-                      {fxs.map((f) => {
-                        const ft = FIXTYPES[f.type] || {}; const elec = ft.kind === "elec";
-                        const x = Math.max(6, Math.min(pw - 6, f.offset * sc)), y = ph - Math.max(0.05, Math.min(H - 0.05, f.height)) * sc;
-                        const col = elec ? C.elec : C.agua;
-                        return (
-                          <g key={f.id}>
-                            <line x1={x} y1={ph} x2={x} y2={y} stroke={col} strokeWidth={1.4} strokeDasharray="3 3" opacity={0.7} />
-                            <rect x={x - 8} y={y - 8} width={16} height={16} rx={3} fill="#fff" stroke={col} strokeWidth={2} />
-                            <circle cx={x} cy={y} r={3} fill={col} />
-                            <text x={x} y={y - 12} fontSize={9} textAnchor="middle" fill={col} fontFamily="ui-monospace, monospace" fontWeight="bold">{f.height.toFixed(2)}</text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-                  <div style={{ minWidth: 300 }} className="flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gray }}>Bocas del muro</div>
-                    <div className="flex flex-col gap-1.5">
-                      {fxs.map((f) => (
-                        <div key={f.id} className="flex flex-wrap items-end gap-2 text-xs">
-                          <select value={f.type} onChange={(e) => updateFixture(f.id, { type: e.target.value, height: FIXTYPES[e.target.value].height })} className="px-2 py-1.5 rounded-lg" style={{ borderLeft: `3px solid ${FIXTYPES[f.type] && FIXTYPES[f.type].kind === "elec" ? C.elec : C.agua}` }}>
-                            {Object.entries(FIXTYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                          </select>
-                          <Field label="Altura (m)"><NumInput step="0.05" value={f.height} className="w-20" onChange={(e) => updateFixture(f.id, { height: Math.max(0, parseFloat(e.target.value) || 0) })} /></Field>
-                          <Field label="Desde inicio (m)"><NumInput step="0.05" value={f.offset.toFixed(2)} className="w-20" onChange={(e) => updateFixture(f.id, { offset: Math.max(0, Math.min(L, parseFloat(e.target.value) || 0)) })} /></Field>
-                          <Btn variant="danger" size="sm" onClick={() => setFixtures((fs) => fs.filter((x) => x.id !== f.id))}>Borrar</Btn>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-          {fixtures.length === 0 && (
-            <EmptyState icon="⚡" title="Sin bocas todavía"
-              subtitle="Andá al Plano, elegí la herramienta ⚡ Instalación y tocá sobre un muro para poner una boca. Después volvé acá para corregir alturas."
-              action={<Btn variant="primary" onClick={() => { setMode("instal"); setTab("plano"); }}>Ir al Plano a poner bocas</Btn>} />
           )}
         </div>
       )}
