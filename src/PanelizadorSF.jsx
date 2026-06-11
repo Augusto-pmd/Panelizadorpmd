@@ -31,6 +31,8 @@ export default function PanelizadorSF() {
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
   const [perfilSolera, setPerfilSolera] = useState("PGU 100×0.9");
   const [arriostrar, setArriostrar] = useState(false);
+  const [panelH, setPanelH] = useState(3.0);   // altura del panel (montante)
+  const [muritoH, setMuritoH] = useState(0.5);  // altura del murito de carga
   const [selWall, setSelWall] = useState(null); // muro seleccionado para editar su tipología
   const [selVano, setSelVano] = useState(null); // vano seleccionado para editar
   const [selRoof, setSelRoof] = useState(null); // paño de techo seleccionado
@@ -55,13 +57,13 @@ export default function PanelizadorSF() {
 
   const VB_W = 1000, VB_H = 640;
 
-  // reglas efectivas = base PMD + configuración del usuario (perfil, modulación, arriostre)
+  // reglas efectivas = base PMD + configuración del usuario (perfil, modulación, alturas, arriostre)
   const effRules = useMemo(() => {
     const base = RULES;
     const kgM = (CATALOGO_PGC.find((p) => p.nombre === perfilMontante) || {}).kg ?? base.kgPGC;
     const kgS = (CATALOGO_PGU.find((p) => p.nombre === perfilSolera) || {}).kg ?? base.kgPGU;
-    return { ...base, studSpacing: modul, perfilMontante, perfilSolera, kgPGC: kgM, kgPGU: kgS, arriostrar };
-  }, [modul, perfilMontante, perfilSolera, arriostrar]);
+    return { ...base, studSpacing: modul, perfilMontante, perfilSolera, kgPGC: kgM, kgPGU: kgS, arriostrar, panelHeight: panelH, vinchaHeight: muritoH };
+  }, [modul, perfilMontante, perfilSolera, arriostrar, panelH, muritoH]);
 
   const result = useMemo(
     () => buildAll(walls, openings, roofs, fixtures, ppm, vincha, effRules),
@@ -313,7 +315,7 @@ export default function PanelizadorSF() {
     };
 
     const H = effRules.panelHeight;
-    const topH = H + (vincha ? 0.6 : 0);
+    const topH = H + (vincha ? effRules.vigaTuboH + effRules.vinchaHeight : 0);
     // altura a la que crece el muro en un punto (x,z): tímpano (sigue la pendiente)
     // o parapeto (PLANO, tapa la chapa inclinada oculta) según el paño.
     const roofHeightAt = (wx, wz) => {
@@ -1412,6 +1414,12 @@ export default function PanelizadorSF() {
                 <option value={0.4}>400 mm</option>
                 <option value={0.6}>600 mm</option>
               </select>
+            </Field>
+            <Field label="Altura panel (m)">
+              <NumInput step="0.05" value={panelH} className="w-20" onChange={(e) => setPanelH(Math.max(1, parseFloat(e.target.value) || 3))} />
+            </Field>
+            <Field label="Murito carga (m)">
+              <NumInput step="0.05" value={muritoH} className="w-20" onChange={(e) => setMuritoH(Math.max(0, parseFloat(e.target.value) || 0))} />
             </Field>
             <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer font-medium" style={{ background: arriostrar ? C.blueSoft : C.paper, color: arriostrar ? C.blueDark : C.gray, border: `1px solid ${arriostrar ? "transparent" : C.line}` }}>
               <input type="checkbox" checked={arriostrar} onChange={(e) => setArriostrar(e.target.checked)} />
