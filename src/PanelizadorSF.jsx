@@ -27,6 +27,7 @@ export default function PanelizadorSF() {
   const [vincha, setVincha] = useState(true);
   const [showOsb, setShowOsb] = useState(true);
   const [showCotas, setShowCotas] = useState(true); // mostrar/ocultar cotas de muros en planta
+  const [snapGuides, setSnapGuides] = useState([]); // guías de alineación activas mientras se dibuja
   // configuración de perfil / modulación / arriostramiento (P6, P4)
   const [modul, setModul] = useState(0.4);
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
@@ -612,19 +613,33 @@ export default function PanelizadorSF() {
     return { x: x0 + cx * w, y: y0 + cy * h };
   }
 
-  function snapPoint(p, base) {
-    for (const w of walls) {
-      for (const ep of [w.a, w.b]) {
-        if (dist(p, ep) < SNAP_PX) return { ...ep };
-      }
+  function snapPoint(p, base, collectGuides) {
+    // 1) enganche directo a un extremo existente
+    for (const w of walls) for (const ep of [w.a, w.b]) {
+      if (dist(p, ep) < SNAP_PX) { if (collectGuides) setSnapGuides([]); return { ...ep }; }
     }
-    const g = 0.05 * ppm; // grilla de 5 cm: cotas redondas
+    const g = 0.05 * ppm; // grilla de 5 cm
+    // 2) ortho respecto al punto base + grilla
+    let q;
     if (base) {
       const dx = Math.abs(p.x - base.x), dy = Math.abs(p.y - base.y);
-      if (dx > dy) return { x: base.x + Math.round((p.x - base.x) / g) * g, y: base.y };
-      return { x: base.x, y: base.y + Math.round((p.y - base.y) / g) * g };
+      q = dx > dy ? { x: base.x + Math.round((p.x - base.x) / g) * g, y: base.y } : { x: base.x, y: base.y + Math.round((p.y - base.y) / g) * g };
+    } else {
+      q = { x: Math.round(p.x / g) * g, y: Math.round(p.y / g) * g };
     }
-    return { x: Math.round(p.x / g) * g, y: Math.round(p.y / g) * g };
+    // 3) guías de alineación: enganchar el eje libre a un extremo existente (estilo Revit)
+    const adjX = !base || Math.abs(q.y - base.y) < 0.5;
+    const adjY = !base || Math.abs(q.x - base.x) < 0.5;
+    const guides = [];
+    let bvx = null, bhy = null;
+    for (const w of walls) for (const ep of [w.a, w.b]) {
+      if (adjX && Math.abs(ep.x - q.x) < SNAP_PX && (bvx === null || Math.abs(ep.x - q.x) < Math.abs(bvx - q.x))) bvx = ep.x;
+      if (adjY && Math.abs(ep.y - q.y) < SNAP_PX && (bhy === null || Math.abs(ep.y - q.y) < Math.abs(bhy - q.y))) bhy = ep.y;
+    }
+    if (bvx !== null) { q = { ...q, x: bvx }; guides.push({ t: "v", at: bvx }); }
+    if (bhy !== null) { q = { ...q, y: bhy }; guides.push({ t: "h", at: bhy }); }
+    if (collectGuides) setSnapGuides(guides);
+    return q;
   }
 
   function eraseAt(raw) {
@@ -768,7 +783,7 @@ export default function PanelizadorSF() {
     if ((mode === "muro" && pending) || (mode === "techo" && pendingRoof) || (mode === "rect" && pendingRect)) {
       const raw = ptFromEvent(e);
       if (!raw) return;
-      setHover(mode === "muro" ? snapPoint(raw, pending) : mode === "rect" ? snapPoint(raw, pendingRect) : raw);
+      setHover(mode === "muro" ? snapPoint(raw, pending, true) : mode === "rect" ? snapPoint(raw, pendingRect, true) : raw);
     }
   }
 
@@ -1980,6 +1995,15 @@ export default function PanelizadorSF() {
               );
             })()}
             {mode === "rect" && pendingRect && <circle cx={pendingRect.x} cy={pendingRect.y} r={5 / zoom} fill={C.blue} />}
+
+            {/* guías de alineación (Revit): cuando el cursor se alinea con un extremo existente */}
+            {((mode === "muro" && pending) || (mode === "rect" && pendingRect)) && snapGuides.map((gd, i) => {
+              const w = VB_W / zoom, h = VB_H / zoom;
+              const vx0 = (VB_W - w) / 2 + pan.x, vy0 = (VB_H - h) / 2 + pan.y;
+              return gd.t === "v"
+                ? <line key={i} x1={gd.at} y1={vy0} x2={gd.at} y2={vy0 + h} stroke={C.green} strokeWidth={1 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.7} />
+                : <line key={i} x1={vx0} y1={gd.at} x2={vx0 + w} y2={gd.at} stroke={C.green} strokeWidth={1 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} opacity={0.7} />;
+            })}
 
             {/* marcador de snap: dónde caerá el próximo punto */}
             {((mode === "muro" && pending) || (mode === "rect" && pendingRect)) && hover && (
