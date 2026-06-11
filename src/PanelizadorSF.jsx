@@ -2164,7 +2164,12 @@ export default function PanelizadorSF() {
           )}
 
           {result.panels.map((p) => {
-            const sc = 46;
+            const sc = 60;
+            const partRows = Object.values(p.pieces.reduce((acc, pc) => {
+              const k = `${pc.uso}|${pc.perfil}|${pc.largo.toFixed(2)}`;
+              if (!acc[k]) acc[k] = { uso: pc.uso, perfil: pc.perfil, largo: pc.largo, cant: 0 };
+              acc[k].cant += pc.cant; return acc;
+            }, {})).sort((a, b) => a.uso.localeCompare(b.uso) || b.largo - a.largo);
             const H = effRules.panelHeight;
             const pw = p.len * sc, ph = H * sc;
             const extra = p.vincha ? (effRules.vigaTuboH + effRules.vinchaHeight) * sc : 0;
@@ -2182,8 +2187,9 @@ export default function PanelizadorSF() {
                 {p.warnings.map((wn, i) => (
                   <div key={i} className="text-xs mb-1.5 px-2 py-1 rounded-md inline-flex items-center gap-1" style={{ color: C.red, background: `${C.red}12` }}>⚠ {wn}</div>
                 ))}
+                <div className="flex gap-5 flex-wrap items-start">
                 <div className="overflow-x-auto">
-                  <svg viewBox={`-6 ${-(extra + 18)} ${pw + lapW + 14} ${ph + extra + 38}`} style={{ width: Math.min(pw + lapW + 14, 700), maxWidth: "100%" }}>
+                  <svg viewBox={`-6 ${-(extra + 18)} ${pw + lapW + 14} ${ph + extra + 38}`} style={{ width: Math.min(pw + lapW + 14, 440), maxWidth: "100%" }}>
                     <rect x={0} y={0} width={pw} height={ph} fill="#FAFAF7" stroke={C.ink} strokeWidth={3} />
                     {/* viga tubo + murito de carga, dentro del mismo panel */}
                     {p.vincha && (
@@ -2287,6 +2293,25 @@ export default function PanelizadorSF() {
                       );
                     })}
                   </svg>
+                </div>
+                <div className="flex-1 min-w-[280px]">
+                  <table className="w-full text-xs" style={{ fontFamily: "ui-monospace, monospace" }}>
+                    <thead><tr style={{ color: C.gray, textAlign: "left" }}>
+                      <th className="font-semibold pb-1">Pieza</th><th className="font-semibold pb-1">Perfil</th>
+                      <th className="font-semibold pb-1 text-right">Largo</th><th className="font-semibold pb-1 text-right">Cant</th>
+                    </tr></thead>
+                    <tbody>
+                      {partRows.map((r, i) => (
+                        <tr key={i} style={{ borderTop: `1px solid ${C.line}` }}>
+                          <td className="py-0.5 pr-2" style={{ color: C.ink }}>{r.uso}</td>
+                          <td className="py-0.5 pr-2" style={{ color: r.perfil.startsWith("PGU") ? C.gray : C.blue }}>{r.perfil.replace("PGC ", "").replace("PGU ", "")}</td>
+                          <td className="py-0.5 text-right" style={{ color: C.ink }}>{r.largo.toFixed(2)}</td>
+                          <td className="py-0.5 text-right font-bold" style={{ color: C.ink }}>{r.cant}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 </div>
                 <div className="mt-2 text-xs flex flex-wrap gap-3" style={{ fontFamily: "ui-monospace, monospace", color: C.gray }}>
                   <span>
