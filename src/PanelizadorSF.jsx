@@ -210,7 +210,19 @@ export default function PanelizadorSF() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(realistic ? 0xbfd6ea : 0xfcfbf8);
-    if (realistic) scene.fog = new THREE.Fog(0xbfd6ea, 45, 130);
+    if (realistic) {
+      scene.fog = new THREE.Fog(0xbfd6ea, 55, 140);
+      // environment gradiente (cielo→suelo) para que los metales reflejen como galvanizado (sin esto un metal sin envMap = negro)
+      const ec = document.createElement("canvas"); ec.width = 8; ec.height = 128;
+      const eg = ec.getContext("2d");
+      const grad = eg.createLinearGradient(0, 0, 0, 128);
+      grad.addColorStop(0, "#eaf4ff"); grad.addColorStop(0.48, "#bcd6ee");
+      grad.addColorStop(0.52, "#a7b394"); grad.addColorStop(1, "#7a8767");
+      eg.fillStyle = grad; eg.fillRect(0, 0, 8, 128);
+      const envTex = new THREE.CanvasTexture(ec);
+      envTex.mapping = THREE.EquirectangularReflectionMapping;
+      scene.environment = envTex;
+    }
 
     scene.add(new THREE.AmbientLight(0xffffff, realistic ? 0.45 : 0.8));
     const sun = new THREE.DirectionalLight(0xfff2dd, realistic ? 1.15 : 0.7);
