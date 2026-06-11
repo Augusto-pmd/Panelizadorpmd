@@ -323,15 +323,10 @@ export default function PanelizadorSF() {
       for (const r of roofs) {
         const rx = r.x / ppm, rz = r.y / ppm, rw = r.w / ppm, rh = r.h / ppm;
         if (wx < rx - 0.05 || wx > rx + rw + 0.05 || wz < rz - 0.05 || wz > rz + rh + 0.05) continue;
+        if (r.parapeto) continue; // el murito de carga (ya en el panel) tapa la chapa: el muro NO crece extra
         const ang = Math.atan((r.slope || 0) / 100), rise = r.rise || 1;
-        if (r.parapeto) {
-          // parapeto: altura PLANA = borde alto de la chapa + remate, tapando la pendiente
-          const run = r.dir === "x" ? rw : rh;
-          h = Math.max(h, topH + run * Math.tan(ang) + 0.2);
-        } else {
-          const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
-          h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
-        }
+        const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
+        h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
       }
       return h;
     };
@@ -507,15 +502,18 @@ export default function PanelizadorSF() {
         const x0 = r.x / ppm, z0 = r.y / ppm, wM = r.w / ppm, hM = r.h / ppm;
         const ang = Math.atan((r.slope || 0) / 100);
         const rise = r.rise || 1;
+        const run = r.dir === "x" ? wM : hM;
+        // chapa oculta (parapeto): la chapa va BAJO el murito (su borde alto ~ topH), tapada por el murito de carga.
+        const eaveY = r.parapeto ? topH - effRules.vinchaHeight - 0.02 : topH;
         // la falda pivota en el ALERO (lado bajo) y sube hacia la cumbrera (rise).
         const outer = new THREE.Group();
         if (r.dir === "x") {
           // alero en x0 (rise +1) o x0+wM (rise -1); ridge en el opuesto
-          outer.position.set(rise > 0 ? x0 : x0 + wM, topH, z0 + hM / 2);
+          outer.position.set(rise > 0 ? x0 : x0 + wM, eaveY, z0 + hM / 2);
           outer.rotation.y = rise > 0 ? 0 : Math.PI;
         } else {
           // alero en z0 (rise +1) o z0+hM (rise -1)
-          outer.position.set(x0 + wM / 2, topH, rise > 0 ? z0 : z0 + hM);
+          outer.position.set(x0 + wM / 2, eaveY, rise > 0 ? z0 : z0 + hM);
           outer.rotation.y = rise > 0 ? -Math.PI / 2 : Math.PI / 2;
         }
         const inner = new THREE.Group();
@@ -2362,19 +2360,20 @@ export default function PanelizadorSF() {
                     })}
                   </svg>
                 </div>
-                <div className="flex-1 min-w-[280px]">
-                  <table className="w-full text-xs" style={{ fontFamily: "ui-monospace, monospace" }}>
-                    <thead><tr style={{ color: C.gray, textAlign: "left" }}>
-                      <th className="font-semibold pb-1">Pieza</th><th className="font-semibold pb-1">Perfil</th>
-                      <th className="font-semibold pb-1 text-right">Largo</th><th className="font-semibold pb-1 text-right">Cant</th>
+                <div style={{ minWidth: 240 }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gray }}>Despiece del panel</div>
+                  <table className="text-xs" style={{ fontFamily: "ui-monospace, monospace", borderCollapse: "collapse" }}>
+                    <thead><tr style={{ color: C.gray, textAlign: "left", background: "#F7F8FA" }}>
+                      <th className="font-semibold px-2 py-1 text-right">Cant</th><th className="font-semibold px-2 py-1">Pieza</th>
+                      <th className="font-semibold px-2 py-1">Perfil</th><th className="font-semibold px-2 py-1 text-right">Largo</th>
                     </tr></thead>
                     <tbody>
                       {partRows.map((r, i) => (
                         <tr key={i} style={{ borderTop: `1px solid ${C.line}` }}>
-                          <td className="py-0.5 pr-2" style={{ color: C.ink }}>{r.uso}</td>
-                          <td className="py-0.5 pr-2" style={{ color: r.perfil.startsWith("PGU") ? C.gray : C.blue }}>{r.perfil.replace("PGC ", "").replace("PGU ", "")}</td>
-                          <td className="py-0.5 text-right" style={{ color: C.ink }}>{r.largo.toFixed(2)}</td>
-                          <td className="py-0.5 text-right font-bold" style={{ color: C.ink }}>{r.cant}</td>
+                          <td className="px-2 py-0.5 text-right font-bold" style={{ color: C.blue }}>{r.cant}×</td>
+                          <td className="px-2 py-0.5" style={{ color: C.ink }}>{r.uso}</td>
+                          <td className="px-2 py-0.5" style={{ color: r.perfil.startsWith("PGU") ? C.gray : C.ink }}>{r.perfil.replace("PGC ", "").replace("PGU ", "")}</td>
+                          <td className="px-2 py-0.5 text-right" style={{ color: C.gray }}>{r.largo.toFixed(2)} m</td>
                         </tr>
                       ))}
                     </tbody>

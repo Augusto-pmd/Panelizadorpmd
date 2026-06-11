@@ -74,14 +74,10 @@ export function buildAll(
     for (const r of roofs as any[]) {
       const rx = r.x / ppm, rz = r.y / ppm, rw = r.w / ppm, rh = r.h / ppm;
       if (wx < rx - 0.05 || wx > rx + rw + 0.05 || wz < rz - 0.05 || wz > rz + rh + 0.05) continue;
+      if (r.parapeto) continue; // el murito de carga ya tapa la chapa: no suma montantes extra
       const ang = Math.atan((r.slope || 0) / 100), rise = r.rise || 1;
-      if (r.parapeto) {
-        const run = r.dir === "x" ? rw : rh;
-        h = Math.max(h, topH + run * Math.tan(ang) + 0.2);
-      } else {
-        const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
-        h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
-      }
+      const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
+      h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
     }
     return h;
   };
