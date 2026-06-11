@@ -17,6 +17,7 @@ export default function PanelizadorSF() {
   const [ppm, setPpm] = useState(50);
   const [pending, setPending] = useState(null);
   const [pendingRoof, setPendingRoof] = useState(null);
+  const [pendingRect, setPendingRect] = useState(null); // herramienta Rectángulo/Habitación
   const [hover, setHover] = useState(null);
   const [calPts, setCalPts] = useState([]);
   const [calInput, setCalInput] = useState("");
@@ -114,11 +115,11 @@ export default function PanelizadorSF() {
     if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
     if (typing) return;
-    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); return; }
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setPendingRect(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); return; }
     if (tab !== "plano") return;
-    const toolKeys = { m: "muro", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
+    const toolKeys = { m: "muro", r: "rect", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
-    if (toolKeys[k]) { setMode(toolKeys[k]); setPending(null); setPendingRoof(null); if (k === "c") setCalPts([]); return; }
+    if (toolKeys[k]) { setMode(toolKeys[k]); setPending(null); setPendingRoof(null); setPendingRect(null); if (k === "c") setCalPts([]); return; }
     if (e.key === "+" || e.key === "=") { setZoom((z) => Math.min(4, z * 1.25)); return; }
     if (e.key === "-" || e.key === "_") { setZoom((z) => Math.max(0.4, z / 1.25)); return; }
     if (e.key === "0") { setZoom(1); setPan({ x: 0, y: 0 }); return; }
@@ -625,6 +626,28 @@ export default function PanelizadorSF() {
       return;
     }
 
+    if (mode === "rect") {
+      if (!pendingRect) {
+        setPendingRect(snapPoint(raw, null));
+      } else {
+        const b = snapPoint(raw, pendingRect);
+        const a = pendingRect;
+        if (Math.abs(b.x - a.x) > 8 && Math.abs(b.y - a.y) > 8) {
+          const c1 = { x: a.x, y: a.y }, c2 = { x: b.x, y: a.y }, c3 = { x: b.x, y: b.y }, c4 = { x: a.x, y: b.y };
+          setWalls((ws) => [
+            ...ws,
+            { id: idRef.current++, a: c1, b: c2 },
+            { id: idRef.current++, a: c2, b: c3 },
+            { id: idRef.current++, a: c3, b: c4 },
+            { id: idRef.current++, a: c4, b: c1 },
+          ]);
+        }
+        setPendingRect(null);
+        setHover(null);
+      }
+      return;
+    }
+
     if (mode === "techo") {
       if (!pendingRoof) {
         setPendingRoof(raw);
@@ -672,10 +695,10 @@ export default function PanelizadorSF() {
   }
 
   function handleMoveHover(e) {
-    if ((mode === "muro" && pending) || (mode === "techo" && pendingRoof)) {
+    if ((mode === "muro" && pending) || (mode === "techo" && pendingRoof) || (mode === "rect" && pendingRect)) {
       const raw = ptFromEvent(e);
       if (!raw) return;
-      setHover(mode === "muro" ? snapPoint(raw, pending) : raw);
+      setHover(mode === "muro" ? snapPoint(raw, pending) : mode === "rect" ? snapPoint(raw, pendingRect) : raw);
     }
   }
 
@@ -1165,13 +1188,14 @@ export default function PanelizadorSF() {
             <span className="text-[10px] font-bold uppercase tracking-wider px-1 hidden sm:inline" style={{ color: C.gray }}>Dibujar</span>
             {[
               { k: "muro", icon: "✏️", label: "Muro", color: C.blue, key: "M" },
+              { k: "rect", icon: "⬛", label: "Habitación", color: C.blue, key: "R" },
               { k: "vano", icon: "▢", label: "Vano", color: C.orange, key: "V" },
               { k: "techo", icon: "⛰", label: "Techo", color: C.gray, key: "T" },
               { k: "instal", icon: "⚡", label: "Instalación", color: C.elec, key: "I" },
             ].map((t) => (
               <ToolButton key={t.k} icon={t.icon} label={t.label} active={mode === t.k} color={t.color}
                 hint={`${t.label} · tecla ${t.key}`}
-                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); }} />
+                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); setPendingRect(null); }} />
             ))}
             <div className="w-px h-7 mx-1 hidden sm:block" style={{ background: C.line }} />
             <span className="text-[10px] font-bold uppercase tracking-wider px-1 hidden sm:inline" style={{ color: C.gray }}>Editar</span>
@@ -1183,7 +1207,7 @@ export default function PanelizadorSF() {
             ].map((t) => (
               <ToolButton key={t.k} icon={t.icon} label={t.label} active={mode === t.k} color={t.color}
                 hint={`${t.label} · tecla ${t.key}`}
-                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); if (t.k === "calibrar") setCalPts([]); }} />
+                onClick={() => { setMode(t.k); setPending(null); setPendingRoof(null); setPendingRect(null); if (t.k === "calibrar") setCalPts([]); }} />
             ))}
             <div className="w-px h-7 mx-1 hidden sm:block" style={{ background: C.line }} />
             <Btn onClick={undo} disabled={!history.length} style={{ opacity: history.length ? 1 : 0.45 }} data-tip="Deshacer · Ctrl+Z">↩</Btn>
@@ -1452,6 +1476,7 @@ export default function PanelizadorSF() {
             <div className="flex flex-col gap-0.5">
               <span style={{ color: C.blueDark, fontWeight: 600 }}>
                 {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
+                {mode === "rect" && (pendingRect ? "Tocá la esquina opuesta: se crean los 4 muros del ambiente de una vez. Snap ortogonal y a grilla." : "Tocá una esquina del ambiente y arrastrá/tocá la opuesta: dibuja los 4 muros juntos. Ideal para empezar rápido.")}
                 {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
                 {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
                 {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Elegí el tipo de techo arriba y tocá ⚡ Generar: sale solo sobre la planta. O dibujá un paño a mano con dos toques.")}
@@ -1669,6 +1694,29 @@ export default function PanelizadorSF() {
               </g>
             )}
             {mode === "muro" && pending && <circle cx={pending.x} cy={pending.y} r={5 / zoom} fill={C.blue} />}
+
+            {/* habitación (rectángulo) en curso */}
+            {mode === "rect" && pendingRect && hover && (() => {
+              const x = Math.min(pendingRect.x, hover.x), y = Math.min(pendingRect.y, hover.y);
+              const w = Math.abs(hover.x - pendingRect.x), h = Math.abs(hover.y - pendingRect.y);
+              return (
+                <g>
+                  <rect x={x} y={y} width={w} height={h} fill="rgba(47,111,224,0.06)" stroke={C.blue} strokeWidth={4 / zoom} strokeDasharray={`${8 / zoom} ${6 / zoom}`} />
+                  <text x={x + w / 2} y={y - 8 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">{(w / ppm).toFixed(2)} m</text>
+                  <text x={x - 8 / zoom} y={y + h / 2} fontSize={13 / zoom} textAnchor="end" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">{(h / ppm).toFixed(2)} m</text>
+                </g>
+              );
+            })()}
+            {mode === "rect" && pendingRect && <circle cx={pendingRect.x} cy={pendingRect.y} r={5 / zoom} fill={C.blue} />}
+
+            {/* marcador de snap: dónde caerá el próximo punto */}
+            {((mode === "muro" && pending) || (mode === "rect" && pendingRect)) && hover && (
+              <g stroke={C.green} strokeWidth={1.6 / zoom} fill="none">
+                <circle cx={hover.x} cy={hover.y} r={7 / zoom} />
+                <line x1={hover.x - 11 / zoom} y1={hover.y} x2={hover.x + 11 / zoom} y2={hover.y} />
+                <line x1={hover.x} y1={hover.y - 11 / zoom} x2={hover.x} y2={hover.y + 11 / zoom} />
+              </g>
+            )}
 
             {/* techo en curso */}
             {mode === "techo" && pendingRoof && hover && (
