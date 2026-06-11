@@ -156,7 +156,7 @@ export function panelizeWall(
       pieces.push({ perfil: PGC, largo: R.vinchaHeight, cant: nMC, uso: "Montante murito 0,50" });
     }
 
-    panels.push({ wallId: wall.id, a, b, len, studs, ops: opDraw, pieces, warnings, first: k === 0, last: k === cuts.length - 2 });
+    panels.push({ wallId: wall.id, a, b, len, studs, ops: opDraw, pieces, warnings, vincha, first: k === 0, last: k === cuts.length - 2 });
   }
   return panels;
 }

@@ -42,6 +42,11 @@ export function buildAll(
   vincha: boolean,
   R: Rules,
 ) {
+  // viga tubo + murito por muro: solo en muros portantes (cfg.portante). Default = global.
+  const wVincha = (w: Wall): boolean => {
+    const cfg = (w as any).cfg;
+    return cfg && cfg.portante !== undefined ? !!cfg.portante : vincha;
+  };
   const joints = detectJoints(walls);
   let panels = [];
   for (const w of walls) {
@@ -49,7 +54,7 @@ export function buildAll(
     // tipología por muro: la config del muro (w.cfg) pisa la global
     const cfg = (w as any).cfg;
     const wr = cfg ? { ...R, ...cfg } : R;
-    const wp = panelizeWall(w, ops, joints, ppm, vincha, wr);
+    const wp = panelizeWall(w, ops, joints, ppm, wVincha(w), wr);
     panels = panels.concat(wp.map((p) => ({ ...p, placa: cfg?.placa || (R as any).placa || "OSB" })));
   }
   panels = panels.map((p, i) => ({
@@ -65,7 +70,7 @@ export function buildAll(
 
   // ---- viga tubo + murito: las piezas van dentro de cada panel; acá solo los ml para info
   let tuboML = 0;
-  if (vincha) for (const w of walls) tuboML += dist(w.a, w.b) / ppm;
+  for (const w of walls) if (wVincha(w)) tuboML += dist(w.a, w.b) / ppm;
 
   // ---- techos inclinados (paneles hasta 6 m + chapa)
   const roofInfo = [];
@@ -101,7 +106,7 @@ export function buildAll(
   // ---- placas OSB
   let wallArea = 0;
   for (const w of walls) wallArea += (dist(w.a, w.b) / ppm) * R.panelHeight;
-  if (vincha) for (const w of walls) wallArea += (dist(w.a, w.b) / ppm) * (R.vigaTuboH + R.vinchaHeight);
+  for (const w of walls) if (wVincha(w)) wallArea += (dist(w.a, w.b) / ppm) * (R.vigaTuboH + R.vinchaHeight);
   let openArea = 0;
   for (const o of openings) openArea += o.width * o.height;
   const sheetArea = R.osbW * R.osbH;

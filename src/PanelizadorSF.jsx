@@ -378,7 +378,7 @@ export default function PanelizadorSF() {
         }
       }
 
-      if (vincha) {
+      if (w2.cfg && w2.cfg.portante !== undefined ? w2.cfg.portante : vincha) {
         // viga tubo: cajón armado de 2 PGU (arriba/abajo) + 2 PGC (almas, corren a lo largo)
         const yv = H + effRules.vigaTuboH / 2;
         addProfile(g2, "x", L, L / 2, H + 0.02, 0, mHeader, 0.09, false);               // PGU inferior (alas arriba)
@@ -1369,6 +1369,12 @@ export default function PanelizadorSF() {
                       {["OSB", "OSB doble", "Fenólico", "Roca de yeso", "Roca + OSB"].map((p) => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </Field>
+                  <Field label="Función">
+                    <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: (cfg.portante ?? vincha) ? C.blueSoft : C.paper, color: (cfg.portante ?? vincha) ? C.blueDark : C.gray, border: `1px solid ${(cfg.portante ?? vincha) ? "transparent" : C.line}` }}>
+                      <input type="checkbox" checked={cfg.portante ?? vincha} onChange={(e) => updateWallCfg(w2.id, { portante: e.target.checked })} />
+                      Portante (viga tubo + murito)
+                    </label>
+                  </Field>
                   {Object.keys(cfg).length > 0 && (
                     <Btn variant="ghost" size="sm" onClick={() => updateWallCfg(w2.id, { perfilMontante: undefined, perfilSolera: undefined, studSpacing: undefined, placa: undefined })}>↺ Volver a global</Btn>
                   )}
@@ -2070,9 +2076,9 @@ export default function PanelizadorSF() {
             const sc = 46;
             const H = effRules.panelHeight;
             const pw = p.len * sc, ph = H * sc;
-            const extra = vincha ? (effRules.vigaTuboH + effRules.vinchaHeight) * sc : 0;
-            const totalH = vincha ? H + effRules.vigaTuboH + effRules.vinchaHeight : H;
-            const osbRows = showOsb ? osbLayoutForPanel(p, vincha, effRules) : [];
+            const extra = p.vincha ? (effRules.vigaTuboH + effRules.vinchaHeight) * sc : 0;
+            const totalH = p.vincha ? H + effRules.vigaTuboH + effRules.vinchaHeight : H;
+            const osbRows = showOsb ? osbLayoutForPanel(p, p.vincha, effRules) : [];
             const lapW = showOsb && !p.last ? effRules.osbLap * sc : 0;
             return (
               <Card key={p.id} className="p-3.5 fade-in">
@@ -2089,7 +2095,7 @@ export default function PanelizadorSF() {
                   <svg viewBox={`-6 ${-(extra + 18)} ${pw + lapW + 14} ${ph + extra + 38}`} style={{ width: Math.min(pw + lapW + 14, 700), maxWidth: "100%" }}>
                     <rect x={0} y={0} width={pw} height={ph} fill="#FAFAF7" stroke={C.ink} strokeWidth={3} />
                     {/* viga tubo + murito de carga, dentro del mismo panel */}
-                    {vincha && (
+                    {p.vincha && (
                       <g>
                         <rect x={0} y={-effRules.vigaTuboH * sc} width={pw} height={effRules.vigaTuboH * sc} fill={C.blueSoft} stroke={C.blue} strokeWidth={2} />
                         <rect x={0} y={-(effRules.vigaTuboH + effRules.vinchaHeight) * sc} width={pw} height={effRules.vinchaHeight * sc} fill="#FAFAF7" stroke={C.ink} strokeWidth={2} />
@@ -2136,19 +2142,12 @@ export default function PanelizadorSF() {
                       }
                       return out;
                     })()}
-                    {/* placas OSB como piezas distintas: las uniones (juntas) se ven */}
+                    {/* placas OSB: todo en amarillo con las juntas (uniones) claras */}
                     {showOsb && (
                       <g>
-                        {osbPiecesForPanel(p, vincha, effRules).pieces.map((pc, i) => {
+                        {osbPiecesForPanel(p, p.vincha, effRules).pieces.map((pc, i) => {
                           const rx = pc.x1 * sc, ry = ph - pc.y2 * sc, rw = (pc.x2 - pc.x1) * sc, rh = (pc.y2 - pc.y1) * sc;
-                          return (
-                            <g key={`pl${i}`}>
-                              <rect x={rx} y={ry} width={rw} height={rh} fill={i % 2 ? "rgba(198,138,18,0.10)" : "rgba(198,138,18,0.18)"} stroke={C.osb} strokeWidth={1.6} />
-                              {rw > 22 && rh > 18 && (
-                                <text x={rx + rw / 2} y={ry + rh / 2 + 3} fontSize={9} textAnchor="middle" fill={C.osb} fontFamily="'JetBrains Mono', monospace" fontWeight="bold" opacity={0.9}>{pc.tag}</text>
-                              )}
-                            </g>
-                          );
+                          return <rect key={`pl${i}`} x={rx} y={ry} width={rw} height={rh} fill="rgba(198,138,18,0.16)" stroke={C.osb} strokeWidth={1.6} />;
                         })}
                         {/* marcas de martillo en esquinas de vanos */}
                         {p.ops.map((o, i) => {
@@ -2468,7 +2467,7 @@ export default function PanelizadorSF() {
                   <Card key={p.id} className="p-3.5 fade-in">
                     <div className="flex items-center justify-between mb-2">
                       <Chip color={C.ink} soft={false} className="text-xs px-2.5 py-1">FICHA {p.id}</Chip>
-                      <div className="text-xs font-mono" style={{ color: C.gray }}>{p.len.toFixed(2)} × {(vincha ? effRules.panelHeight + effRules.vigaTuboH + effRules.vinchaHeight : effRules.panelHeight).toFixed(2)} m{vincha ? " · panel + viga tubo + murito" : ""} · muro #{p.wallId}</div>
+                      <div className="text-xs font-mono" style={{ color: C.gray }}>{p.len.toFixed(2)} × {(p.vincha ? effRules.panelHeight + effRules.vigaTuboH + effRules.vinchaHeight : effRules.panelHeight).toFixed(2)} m{p.vincha ? " · panel + viga tubo + murito" : ""} · muro #{p.wallId}</div>
                     </div>
                     <table className="w-full text-xs font-mono">
                       <thead>
@@ -2492,10 +2491,10 @@ export default function PanelizadorSF() {
                     </table>
                     {/* instructivo de corte OSB */}
                     {(() => {
-                      const cut = osbPiecesForPanel(p, vincha, effRules);
+                      const cut = osbPiecesForPanel(p, p.vincha, effRules);
                       if (cut.pieces.length === 0) return null;
                       const sc2 = 42;
-                      const dw = (cut.end - cut.start) * sc2, dh = (effRules.panelHeight + (vincha ? effRules.vigaTuboH + effRules.vinchaHeight : 0)) * sc2;
+                      const dw = (cut.end - cut.start) * sc2, dh = (effRules.panelHeight + (p.vincha ? effRules.vigaTuboH + effRules.vinchaHeight : 0)) * sc2;
                       return (
                         <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${C.grid}` }}>
                           <div className="text-xs font-semibold mb-1" style={{ color: C.osb }}>Instructivo de corte OSB — {cut.pieces.length} placas</div>
