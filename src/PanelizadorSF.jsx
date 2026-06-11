@@ -284,13 +284,15 @@ export default function PanelizadorSF() {
     // Perfil real C (PGC) o U (PGU) como canal abierto: alma + 2 alas (no un tubo macizo).
     // runAxis "y" = miembro vertical (montante); "x" = horizontal (solera/dintel).
     const FL = 0.04, TW = 0.012; // ala 40 mm, chapa visual
-    const addProfile = (parent, runAxis, len, x, y, z, mat, web = 0.1) => {
+    // flip: invierte el lado del alma (solera superior con alas hacia abajo)
+    const addProfile = (parent, runAxis, len, x, y, z, mat, web = 0.1, flip = false) => {
+      const s = flip ? -1 : 1;
       if (runAxis === "y") {
-        addBox(parent, TW, len, web, x - FL / 2 + TW / 2, y, z, mat);                 // alma
+        addBox(parent, TW, len, web, x + s * (-FL / 2 + TW / 2), y, z, mat);          // alma
         addBox(parent, FL, len, TW, x, y, z + web / 2 - TW / 2, mat);                 // ala +
         addBox(parent, FL, len, TW, x, y, z - web / 2 + TW / 2, mat);                 // ala -
       } else {
-        addBox(parent, len, TW, web, x, y - FL / 2 + TW / 2, z, mat);                 // alma
+        addBox(parent, len, TW, web, x, y + s * (-FL / 2 + TW / 2), z, mat);          // alma
         addBox(parent, len, FL, TW, x, y, z + web / 2 - TW / 2, mat);                 // ala +
         addBox(parent, len, FL, TW, x, y, z - web / 2 + TW / 2, mat);                 // ala -
       }
@@ -326,9 +328,13 @@ export default function PanelizadorSF() {
       g2.rotation.y = -Math.atan2(uz, ux);
       root.add(g2);
 
-      // soleras PGU (U) inferior y superior
-      addProfile(g2, "x", L, L / 2, 0.05, 0, mSteel);
-      addProfile(g2, "x", L, L / 2, H - 0.05, 0, mSteel);
+      // soleras PGU (U): inferior contra platea (alas arriba) y superior (alas abajo).
+      // El montante PGC NESTA DENTRO del canal de la solera; por eso el montante
+      // va casi a altura completa y la solera abraza su extremo (no llega a filo).
+      const SW = 0.012;            // espesor visual de la chapa de la solera
+      addProfile(g2, "x", L, L / 2, FL / 2, 0, mSteel);                  // solera inferior: alas arriba
+      addProfile(g2, "x", L, L / 2, H - FL / 2, 0, mSteel, 0.1, true);   // solera superior: alas abajo
+      const studLen3d = H - 2 * SW;  // entra dentro de ambas soleras
 
       const wallPanels = result.panels.filter((p) => p.wallId === w2.id);
       for (const p of wallPanels) {
@@ -336,19 +342,19 @@ export default function PanelizadorSF() {
           const gx = p.a + s.x;
           if (s.qty > 1) {
             // montante en caja / T: 2 PGC enfrentados
-            addProfile(g2, "y", H - 0.2, gx - 0.012, H / 2, 0, mBox);
-            addProfile(g2, "y", H - 0.2, gx + 0.012, H / 2, 0, mBox);
+            addProfile(g2, "y", studLen3d, gx - 0.012, H / 2, 0, mBox);
+            addProfile(g2, "y", studLen3d, gx + 0.012, H / 2, 0, mBox);
           } else {
-            addProfile(g2, "y", H - 0.2, gx, H / 2, 0, mSteel);
+            addProfile(g2, "y", studLen3d, gx, H / 2, 0, mSteel);
           }
         }
         for (const o of p.ops) {
           if (!(o.x1 >= p.a - 0.01)) continue;
           const cxo = (o.x1 + o.x2) / 2, wo = o.x2 - o.x1;
           const headBot = o.sill + o.height;
-          // dintel: cajón de 2 PGC (dos C enfrentadas), entre montantes (no sobresale)
-          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09);
-          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09);
+          // dintel: cajón de 2 PGC: una C con alas abajo + otra con alas arriba → cierran el cajón
+          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09, false);
+          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09, true);
           // jacks que sostienen el dintel, a cada lado del vano
           if (headBot > 0.14) {
             addProfile(g2, "y", headBot, o.x1 + 0.03, headBot / 2, 0, mSteel);
@@ -371,12 +377,12 @@ export default function PanelizadorSF() {
       }
 
       if (vincha) {
-        // viga tubo: cajón armado de 2 PGU + 2 PGC (dos U arriba/abajo + dos C enfrentadas)
+        // viga tubo: cajón armado de 2 PGU (arriba/abajo) + 2 PGC (almas, corren a lo largo)
         const yv = H + effRules.vigaTuboH / 2;
-        addProfile(g2, "x", L, L / 2, H + 0.02, 0, mHeader, 0.09);                 // PGU inferior del cajón
-        addProfile(g2, "x", L, L / 2, H + effRules.vigaTuboH - 0.02, 0, mHeader, 0.09); // PGU superior
-        addProfile(g2, "y", effRules.vigaTuboH, L * 0.5 - 0.012, yv, 0, mBox);     // 2 PGC almas
-        addProfile(g2, "y", effRules.vigaTuboH, L * 0.5 + 0.012, yv, 0, mBox);
+        addProfile(g2, "x", L, L / 2, H + 0.02, 0, mHeader, 0.09, false);               // PGU inferior (alas arriba)
+        addProfile(g2, "x", L, L / 2, H + effRules.vigaTuboH - 0.02, 0, mHeader, 0.09, true); // PGU superior (alas abajo)
+        addProfile(g2, "x", L, L / 2, yv, 0.03, mBox, 0.06);                            // PGC alma frente
+        addProfile(g2, "x", L, L / 2, yv, -0.03, mBox, 0.06, true);                     // PGC alma fondo
         // murito de carga: soleras PGU + montantes PGC a modulación
         const y0 = H + effRules.vigaTuboH;
         addProfile(g2, "x", L, L / 2, y0 + 0.025, 0, mSteel);
