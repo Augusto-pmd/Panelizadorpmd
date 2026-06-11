@@ -6,6 +6,7 @@ import {
   panelizeWall, osbLayoutForPanel, osbPiecesForPanel, packOsbSheets, buildAll,
 } from "./lib/engine";
 import { Card, Btn, ToolButton, IconBtn, Stat, SectionTitle, Chip, Field, NumInput, EmptyState } from "./ui";
+import DetallesView from "./DetallesView";
 // ---------------- componente principal ----------------
 export default function PanelizadorSF() {
   const [tab, setTab] = useState("plano");
@@ -1024,6 +1025,7 @@ export default function PanelizadorSF() {
             ["v3d", "Vista 3D", "🧊", null],
             ["corte", "Corte", "✂️", null],
             ["fabricar", "Fabricación", "🏭", null],
+            ["detalles", "Detalles", "📚", null],
           ].map(([k, label, icon, badge]) => {
             const on = tab === k;
             return (
@@ -1358,6 +1360,32 @@ export default function PanelizadorSF() {
               <circle key={`cal${i}`} cx={p.x} cy={p.y} r={6 / zoom} fill={C.red} />
             ))}
             {calPts.length === 2 && <line x1={calPts[0].x} y1={calPts[0].y} x2={calPts[1].x} y2={calPts[1].y} stroke={C.red} strokeWidth={2 / zoom} strokeDasharray="6 4" />}
+
+            {/* barra de escala gráfica + flecha de norte (en coordenadas de mundo) */}
+            {(() => {
+              const viewM = w / ppm; // metros que abarca el viewBox
+              const target = viewM / 5;
+              const steps = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100];
+              const nice = steps.filter((s) => s <= target).pop() || steps[0];
+              const barW = nice * ppm; // largo de la barra en unidades mundo
+              const x0 = vbX + 0.04 * w, y0 = vbY + 0.93 * h;
+              const t = 5 / zoom; // alto de ticks
+              const nx = vbX + 0.93 * w, ny = vbY + 0.14 * h, na = 0.05 * w; // norte
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  <line x1={x0} y1={y0} x2={x0 + barW} y2={y0} stroke={C.ink} strokeWidth={2 / zoom} />
+                  <line x1={x0} y1={y0 - t} x2={x0} y2={y0 + t} stroke={C.ink} strokeWidth={2 / zoom} />
+                  <line x1={x0 + barW} y1={y0 - t} x2={x0 + barW} y2={y0 + t} stroke={C.ink} strokeWidth={2 / zoom} />
+                  <rect x={x0} y={y0 - t} width={barW / 2} height={t} fill={C.ink} opacity={0.85} />
+                  <text x={x0 + barW / 2} y={y0 + 16 / zoom} fontSize={11 / zoom} textAnchor="middle" fill={C.ink} fontFamily="'JetBrains Mono', monospace" fontWeight="bold">{nice >= 1 ? nice : nice.toFixed(2)} m</text>
+                  <g>
+                    <line x1={nx} y1={ny + na} x2={nx} y2={ny - na} stroke={C.ink} strokeWidth={2 / zoom} />
+                    <path d={`M ${nx} ${ny - na} L ${nx - na * 0.28} ${ny - na * 0.55} L ${nx + na * 0.28} ${ny - na * 0.55} Z`} fill={C.ink} />
+                    <text x={nx} y={ny + na + 13 / zoom} fontSize={12 / zoom} textAnchor="middle" fill={C.ink} fontFamily="'JetBrains Mono', monospace" fontWeight="bold">N</text>
+                  </g>
+                </g>
+              );
+            })()}
           </svg>
 
           {/* chip de modo activo (arriba-izquierda) */}
@@ -2105,6 +2133,9 @@ export default function PanelizadorSF() {
           )}
         </div>
       )}
+
+      {/* ================= TAB DETALLES ================= */}
+      {tab === "detalles" && <DetallesView />}
 
       {/* ===== Footer ===== */}
       <footer className="no-print mt-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2 text-[11px]" style={{ borderTop: `1px solid ${C.line}`, color: C.gray }}>
