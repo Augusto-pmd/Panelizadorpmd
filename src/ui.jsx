@@ -12,8 +12,8 @@ const SHADOW = "0 1px 2px rgba(16,32,43,.04), 0 2px 8px rgba(16,32,43,.05)";
 export function Card({ className = "", style, children, ...rest }) {
   return (
     <div
-      className={`rounded-xl ${className}`}
-      style={{ background: "#fff", border: `1px solid ${C.line}`, boxShadow: SHADOW, ...style }}
+      className={`rounded-xl uicard ${className}`}
+      style={{ background: "#fff", border: `1px solid ${C.line}`, ...style }}
       {...rest}
     >
       {children}
@@ -36,7 +36,7 @@ export function Btn({ variant = "ghost", size = "md", className = "", style, chi
   const pad = size === "sm" ? "px-2.5 py-1.5 text-xs" : size === "lg" ? "px-4 py-2.5 text-sm" : "px-3 py-2 text-sm";
   return (
     <button
-      className={`rounded-lg font-semibold inline-flex items-center justify-center gap-1.5 ${pad} ${className}`}
+      className={`uibtn rounded-lg font-semibold inline-flex items-center justify-center gap-1.5 ${pad} ${className}`}
       style={{ ...v, ...style }}
       {...rest}
     >
@@ -50,7 +50,7 @@ export function ToolButton({ icon, label, active, color = C.blue, hint, classNam
   return (
     <button
       data-tip={hint}
-      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold select-none ${className}`}
+      className={`uibtn flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold select-none ${className}`}
       style={{
         background: active ? color : "#fff",
         color: active ? "#fff" : C.ink,
@@ -70,7 +70,7 @@ export function IconBtn({ icon, hint, active, className = "", style, ...rest }) 
   return (
     <button
       data-tip={hint}
-      className={`grid place-items-center rounded-lg ${className}`}
+      className={`uibtn grid place-items-center rounded-lg ${className}`}
       style={{
         width: 36, height: 36,
         background: active ? C.blue : "#fff",

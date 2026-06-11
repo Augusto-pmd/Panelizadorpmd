@@ -1101,7 +1101,7 @@ export default function PanelizadorSF() {
       <div className="sticky top-0 z-40 no-print">
         <header
           className="px-4 py-2.5 flex items-center gap-3"
-          style={{ background: C.chrome, color: "#fff", boxShadow: "0 6px 20px rgba(16,32,43,.18)" }}
+          style={{ background: `linear-gradient(180deg, ${C.chrome2} 0%, ${C.chrome} 100%)`, color: "#fff", boxShadow: "0 6px 22px rgba(16,32,43,.22)" }}
         >
           <div className="flex items-center gap-2.5">
             <div className="grid place-items-center rounded-lg font-extrabold"
