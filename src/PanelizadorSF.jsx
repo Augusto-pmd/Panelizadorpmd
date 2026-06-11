@@ -33,6 +33,7 @@ export default function PanelizadorSF() {
   const [arriostrar, setArriostrar] = useState(false);
   const [selWall, setSelWall] = useState(null); // muro seleccionado para editar su tipología
   const [selVano, setSelVano] = useState(null); // vano seleccionado para editar
+  const [selRoof, setSelRoof] = useState(null); // paño de techo seleccionado
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
@@ -115,7 +116,7 @@ export default function PanelizadorSF() {
     if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
     if (typing) return;
-    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setPendingRect(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); return; }
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setPendingRect(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); setSelRoof(null); return; }
     if (tab !== "plano") return;
     const toolKeys = { m: "muro", r: "rect", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
@@ -478,6 +479,9 @@ export default function PanelizadorSF() {
           const z = -info.width / 2 + (i * info.width) / Math.max(1, nCab - 1);
           addBox(inner, info.slopeLen, 0.1, 0.045, info.slopeLen / 2, 0.05, z, mSteel);
         }
+        // DETALLE DE UNIÓN: solera de apoyo en el alero (sobre el muro) y solera/viga de cumbrera
+        addBox(inner, 0.1, 0.07, info.width, 0.05, 0.0, 0, mSteel);                              // apoyo en alero (sobre la solera del muro)
+        addBox(inner, 0.1, 0.12, info.width, info.slopeLen - 0.05, 0.06, 0, mHeader);            // viga de cumbrera (encuentro de faldas)
         if (lana3d) addBox(inner, info.slopeLen, 0.085, info.width, info.slopeLen / 2, 0.05, 0, mLana);
         if (osb3d) addBox(inner, info.slopeLen, 0.012, info.width, info.slopeLen / 2, 0.106, 0, mOsb);
         addBox(inner, info.slopeLen + 0.15, 0.02, info.width + 0.1, info.slopeLen / 2, 0.125, 0, mChapa);
@@ -1409,6 +1413,42 @@ export default function PanelizadorSF() {
             );
           })()}
 
+          {/* ===== Propiedades del paño de techo seleccionado ===== */}
+          {selRoof != null && (() => {
+            const r = roofs.find((x) => x.id === selRoof);
+            if (!r) return null;
+            const info = result.roofInfo.find((x) => x.id === r.id);
+            return (
+              <Card className="p-3 pop-in" style={{ borderColor: C.gray, borderWidth: 1.5 }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Chip color={C.gray} soft={false} className="text-[10px] px-2 py-0.5">{info ? info.tag : "Techo"}</Chip>
+                  <span className="text-sm font-bold" style={{ color: C.ink }}>Paño de techo</span>
+                  <button onClick={() => setSelRoof(null)} className="ml-auto grid place-items-center rounded-lg" style={{ width: 28, height: 28, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
+                </div>
+                <div className="flex flex-wrap items-end gap-3 text-xs">
+                  <Field label={`Pendiente · ${r.slope}%`}>
+                    <input type="range" min="5" max="60" step="1" value={r.slope} style={{ width: 130 }} onChange={(e) => updateRoof(r.id, { slope: parseFloat(e.target.value) })} />
+                  </Field>
+                  <Field label="Sentido del agua">
+                    <select value={r.dir} className="px-2 py-1.5 rounded-lg" onChange={(e) => updateRoof(r.id, { dir: e.target.value })}>
+                      <option value="x">↔ horizontal</option>
+                      <option value="y">↕ vertical</option>
+                    </select>
+                  </Field>
+                  <Field label="Sube hacia">
+                    <select value={r.rise || 1} className="px-2 py-1.5 rounded-lg" onChange={(e) => updateRoof(r.id, { rise: parseFloat(e.target.value) })}>
+                      <option value={1}>{r.dir === "x" ? "→ derecha" : "↓ abajo"}</option>
+                      <option value={-1}>{r.dir === "x" ? "← izquierda" : "↑ arriba"}</option>
+                    </select>
+                  </Field>
+                  {info && <span className="font-mono pb-1.5" style={{ color: info.warn ? C.red : C.gray }}>pend {info.slopeLen.toFixed(2)} m · {info.n} paneles · {info.nCh} chapas</span>}
+                  <Btn variant="danger" size="sm" onClick={() => { setRoofs((rs) => rs.filter((x) => x.id !== r.id)); setSelRoof(null); }}>🗑 Borrar paño</Btn>
+                </div>
+                <div className="text-[11px] mt-2" style={{ color: C.gray }}>Cada paño se edita por separado. "Sube hacia" define dónde queda la cumbrera (lado alto).</div>
+              </Card>
+            );
+          })()}
+
           {/* largo exacto del tramo en curso */}
           {mode === "muro" && pending && (
             <Card className="flex flex-wrap gap-2 items-center p-2.5 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
@@ -1503,7 +1543,7 @@ export default function PanelizadorSF() {
                 {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
                 {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Elegí el tipo de techo arriba y tocá ⚡ Generar: sale solo sobre la planta. O dibujá un paño a mano con dos toques.")}
                 {mode === "instal" && "Tocá sobre un muro para marcar un punto de instalación (toma por defecto). Cambiá tipo y altura en la lista de abajo."}
-                {mode === "editar" && "Tocá un muro para elegir su tipología (perfil, modulación, placa). Agarrá y arrastrá: vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés los muros que llegan a ella."}
+                {mode === "editar" && "Tocá un muro (tipología), un vano o un paño de techo para editarlo por separado. Arrastrá para mover vanos/instalaciones o esquinas de muro."}
                 {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
                 {mode === "calibrar" && (calPts.length < 2 ? `Tocá ${2 - calPts.length} punto${calPts.length === 1 ? "" : "s"} sobre una cota conocida del plano.` : "Ingresá la distancia real en metros y aplicá.")}
               </span>
@@ -1542,29 +1582,34 @@ export default function PanelizadorSF() {
             {roofs.map((r, idx) => {
               const info = result.roofInfo.find((x) => x.id === r.id);
               const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-              const mg = 16 / zoom, ah = 7 / zoom; // margen y tamaño de flecha
+              const mg = 16 / zoom, ah = 8 / zoom; // margen y tamaño de flecha
+              const ridgeMax = (r.rise || 1) > 0; // cumbrera en el borde +
               const arrows = [];
+              let cumb; // línea de cumbrera (lado alto)
+              const head = (bx, by) => { const px = -by, py = bx; return `M 0 0 l ${(bx + px) * ah} ${(by + py) * ah} M 0 0 l ${(bx - px) * ah} ${(by - py) * ah}`; };
               if (r.dir === "x") {
-                for (const fy of [cy - r.h / 4, cy, cy + r.h / 4]) {
-                  arrows.push({ x1: r.x + mg, y1: fy, x2: r.x + r.w - mg, y2: fy, hx: -ah, hy: ah });
-                }
+                const rx = ridgeMax ? r.x + r.w : r.x, ex = ridgeMax ? r.x : r.x + r.w;
+                const u = Math.sign(ex - rx); // dirección de bajada (agua)
+                cumb = { x1: rx, y1: r.y, x2: rx, y2: r.y + r.h };
+                for (const fy of [cy - r.h / 4, cy, cy + r.h / 4]) arrows.push({ x1: rx + u * mg, y1: fy, x2: ex - u * mg, y2: fy, hp: head(-u, 0) });
               } else {
-                for (const fx of [cx - r.w / 4, cx, cx + r.w / 4]) {
-                  arrows.push({ x1: fx, y1: r.y + mg, x2: fx, y2: r.y + r.h - mg, hx: ah, hy: -ah });
-                }
+                const ry = ridgeMax ? r.y + r.h : r.y, ey = ridgeMax ? r.y : r.y + r.h;
+                const u = Math.sign(ey - ry);
+                cumb = { x1: r.x, y1: ry, x2: r.x + r.w, y2: ry };
+                for (const fx of [cx - r.w / 4, cx, cx + r.w / 4]) arrows.push({ x1: fx, y1: ry + u * mg, x2: fx, y2: ey - u * mg, hp: head(0, -u) });
               }
+              const selr = mode === "editar" ? { style: { cursor: "pointer" }, onPointerDown: (e) => { e.stopPropagation(); setSelRoof(r.id); setSelWall(null); setSelVano(null); } } : {};
+              const on = selRoof === r.id;
               return (
-                <g key={r.id}>
-                  <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="rgba(46,111,216,0.05)" stroke={C.blue} strokeWidth={1.6 / zoom} strokeDasharray={`${9 / zoom} ${5 / zoom}`} opacity={0.7} />
+                <g key={r.id} {...selr}>
+                  <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={on ? "rgba(46,111,216,0.12)" : "rgba(46,111,216,0.05)"} stroke={C.blue} strokeWidth={(on ? 2.6 : 1.6) / zoom} strokeDasharray={`${9 / zoom} ${5 / zoom}`} opacity={on ? 1 : 0.7} />
                   {/* cumbrera (lado alto) */}
-                  {r.dir === "x"
-                    ? <line x1={r.x} y1={r.y} x2={r.x} y2={r.y + r.h} stroke={C.ink} strokeWidth={3 / zoom} />
-                    : <line x1={r.x} y1={r.y} x2={r.x + r.w} y2={r.y} stroke={C.ink} strokeWidth={3 / zoom} />}
-                  {/* flechas de agua */}
+                  <line x1={cumb.x1} y1={cumb.y1} x2={cumb.x2} y2={cumb.y2} stroke={C.ink} strokeWidth={3 / zoom} />
+                  {/* flechas de agua (bajan hacia el alero) */}
                   {arrows.map((a, i) => (
-                    <g key={i} stroke={C.blue} strokeWidth={1.6 / zoom} fill="none" opacity={0.8}>
+                    <g key={i} stroke={C.blue} strokeWidth={1.6 / zoom} fill="none" opacity={0.85}>
                       <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} />
-                      <path d={`M ${a.x2} ${a.y2} l ${a.hx} ${a.hy} M ${a.x2} ${a.y2} l ${a.hx} ${-a.hy}`} />
+                      <g transform={`translate(${a.x2},${a.y2})`}><path d={a.hp} /></g>
                     </g>
                   ))}
                   <g>
