@@ -1318,10 +1318,16 @@ export default function PanelizadorSF() {
           style={{ background: `linear-gradient(180deg, ${C.chrome2} 0%, ${C.chrome} 100%)`, color: "#fff", boxShadow: "0 6px 22px rgba(16,32,43,.22)" }}
         >
           <div className="flex items-center gap-2.5">
-            <div className="grid place-items-center rounded-lg font-extrabold"
-              style={{ width: 34, height: 34, background: C.blue, color: "#fff", fontSize: 14, letterSpacing: "-.02em" }}>PMD</div>
+            <div className="grid place-items-center rounded-lg" style={{ background: "#fff", padding: "5px 8px", boxShadow: "0 1px 4px rgba(0,0,0,.18)" }}>
+              <div style={{ display: "flex", gap: 3, marginBottom: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#26A6DD" }} />
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#1B75B8" }} />
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "#004A8E" }} />
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#262E34", lineHeight: 1, letterSpacing: ".04em" }}>PMD</div>
+            </div>
             <div className="leading-tight">
-              <div className="text-[10px] uppercase font-semibold" style={{ color: "#8FA6C9", letterSpacing: ".16em" }}>PMD Arquitectura</div>
+              <div className="text-[10px] uppercase font-semibold" style={{ color: "#BBD2EC", letterSpacing: ".22em" }}>Arquitectura</div>
               <div className="text-[15px] font-bold">Panelizador Steel Framing</div>
             </div>
           </div>

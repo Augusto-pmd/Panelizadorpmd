@@ -1,24 +1,26 @@
 // Reglas constructivas y constantes PMD. Sin dependencias.
 // NO cambiar valores sin confirmación de Augusto (ver CLAUDE.md).
+// Paleta institucional PMD Arquitectura (manual de marca):
+//  #004A8E navy (301c) · #1B75B8 azul (2383c) · #26A6DD celeste (298c) · #262E34 carbón (4280c).
 
 export const C = {
-  ink: "#16202B",
-  chrome: "#1E2A38",
-  chrome2: "#27384A",
-  blue: "#2F6FE0",
-  blueDark: "#1F56B8",
-  blueSoft: "#E8F0FD",
-  paper: "#F4F5F7",
+  ink: "#262E34",        // carbón institucional (texto / wordmark PMD)
+  chrome: "#004A8E",     // navy institucional (header)
+  chrome2: "#1B75B8",    // azul medio (degradé header)
+  blue: "#1B75B8",       // azul interactivo
+  blueDark: "#004A8E",   // navy
+  blueSoft: "#E5F0F9",   // tinte celeste suave
+  paper: "#F4F6F8",
   panel: "#FFFFFF",
-  line: "#E4E7EC",
-  grid: "#E7E9ED",
-  orange: "#E0762E",
+  line: "#E2E7EC",
+  grid: "#E7EAEE",
+  orange: "#EBA417",     // ámbar (Paleta 3) — acento / vanos
   green: "#2E9E63",
   red: "#D4483B",
   gray: "#6B7785",
   osb: "#C68A12",
   elec: "#D14545",
-  agua: "#2BA3B8",
+  agua: "#26A6DD",       // celeste institucional
   lana: "#C9A227",
 };
 
