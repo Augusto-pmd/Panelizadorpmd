@@ -1,4 +1,4 @@
-import { PGC, PGU, SNAP_PX } from "./rules";
+import { SNAP_PX } from "./rules";
 import type { Rules } from "./rules";
 import { dist } from "./geometry";
 import type { Wall, Opening, Joints } from "./types";
@@ -12,6 +12,9 @@ export function panelizeWall(
   vincha: boolean,
   R: Rules,
 ) {
+  // P6: el perfil sale de la configuración (default = PMD)
+  const PGC = R.perfilMontante;
+  const PGU = R.perfilSolera;
   const L = dist(wall.a, wall.b) / ppm;
   if (L < 0.1) return [];
 
@@ -79,7 +82,8 @@ export function panelizeWall(
     }
 
     for (const tx of teesHere) {
-      if (tx > a + 0.03 && tx < b - 0.03) addStud(tx - a, 2, studLen, "T");
+      // P1: encuentro en T = 3 PGC (Triple), uno rotado 90°
+      if (tx > a + 0.03 && tx < b - 0.03) addStud(tx - a, 3, studLen, "T");
     }
 
     const opDraw = [];
@@ -94,39 +98,42 @@ export function panelizeWall(
       const opStartsHere = op.x1 >= a - 0.01;
       const opEndsHere = op.x2 <= b + 0.01;
 
+      // montantes (grilla) interrumpidos por el vano → base para jacks y cripples
+      let interruptedN = 0;
+      for (let gx = g0; gx < b - 0.05; gx += R.studSpacing) {
+        if (gx > op.x1 + 0.03 && gx < op.x2 - 0.03 && gx > a && gx < b) interruptedN++;
+      }
+      // P5: cantidad de jacks por lado ≈ montantes interrumpidos ÷ 2, repartidos a ambos lados
+      const jacksPerSide = Math.max(1, Math.ceil(interruptedN / 4));
+
       if (opStartsHere) addStud(x1, 1, studLen, "king");
       if (opEndsHere) addStud(x2, 1, studLen, "king");
 
       const jackLen = Math.min(headBot, studLen);
-      if (opStartsHere) pieces.push({ perfil: PGC, largo: jackLen, cant: 1, uso: "Jack vano" });
-      if (opEndsHere) pieces.push({ perfil: PGC, largo: jackLen, cant: 1, uso: "Jack vano" });
+      if (opStartsHere) pieces.push({ perfil: PGC, largo: jackLen, cant: jacksPerSide, uso: "Jack vano" });
+      if (opEndsHere) pieces.push({ perfil: PGC, largo: jackLen, cant: jacksPerSide, uso: "Jack vano" });
 
       if (opStartsHere) {
+        // dintel: viga cajón (2 PGC) + solera de dintel PGU con "corte de 10" (P2)
         pieces.push({ perfil: PGC, largo: w + 2 * R.headerBearing, cant: 2, uso: "Dintel en caja" });
+        pieces.push({ perfil: PGU, largo: w + 2 * R.headerBearing, cant: 1, uso: "Solera de dintel (corte 10)" });
       }
 
       const cripTopLen = H - headBot - R.headerDepth;
-      if (cripTopLen > 0.06) {
-        let n = 0;
-        for (let gx = g0; gx < b - 0.05; gx += R.studSpacing) {
-          if (gx > op.x1 + 0.03 && gx < op.x2 - 0.03 && gx > a && gx < b) n++;
-        }
-        if (n > 0) pieces.push({ perfil: PGC, largo: cripTopLen, cant: n, uso: "Cripple sup." });
+      if (cripTopLen > 0.06 && interruptedN > 0) {
+        pieces.push({ perfil: PGC, largo: cripTopLen, cant: interruptedN, uso: "Cripple sup." });
       }
 
       if (sill > 0.05) {
-        if (opStartsHere) pieces.push({ perfil: PGU, largo: w, cant: 1, uso: "Antepecho" });
+        // antepecho: solera PGU del vano con "corte de 10" (largo = ancho + 20 cm) (P2)
+        if (opStartsHere) pieces.push({ perfil: PGU, largo: w + 0.20, cant: 1, uso: "Antepecho (corte 10)" });
         const cripBotLen = sill - 0.05;
-        let n = 0;
-        for (let gx = g0; gx < b - 0.05; gx += R.studSpacing) {
-          if (gx > op.x1 + 0.03 && gx < op.x2 - 0.03 && gx > a && gx < b) n++;
-        }
-        if (n > 0 && cripBotLen > 0.06) pieces.push({ perfil: PGC, largo: cripBotLen, cant: n, uso: "Cripple inf." });
+        if (interruptedN > 0 && cripBotLen > 0.06) pieces.push({ perfil: PGC, largo: cripBotLen, cant: interruptedN, uso: "Cripple inf." });
       }
     }
 
     for (const s of studs) {
-      const uso = s.tipo === "caja" ? "Montante en caja (esquina)" : s.tipo === "T" ? "Montante T (doble)" : s.tipo === "king" ? "King vano" : "Montante";
+      const uso = s.tipo === "caja" ? "Montante en caja (esquina)" : s.tipo === "T" ? "Montante T (triple)" : s.tipo === "king" ? "King vano" : "Montante";
       pieces.push({ perfil: PGC, largo: s.len, cant: s.qty, uso });
     }
 

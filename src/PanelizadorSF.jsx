@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import {
-  C, RULES, FIXTYPES, PGC, PGU, TUBO, SNAP_PX,
+  C, RULES, FIXTYPES, PGC, PGU, TUBO, SNAP_PX, CATALOGO_PGC, CATALOGO_PGU,
   slugify, parseDxf, dist, projectOnSegment, detectJoints,
   panelizeWall, osbLayoutForPanel, osbPiecesForPanel, packOsbSheets, buildAll,
 } from "./lib/engine";
@@ -24,6 +24,11 @@ export default function PanelizadorSF() {
   const [bgOpacity, setBgOpacity] = useState(0.55);
   const [vincha, setVincha] = useState(true);
   const [showOsb, setShowOsb] = useState(true);
+  // configuración de perfil / modulación / arriostramiento (P6, P4)
+  const [modul, setModul] = useState(0.4);
+  const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
+  const [perfilSolera, setPerfilSolera] = useState("PGU 100×0.9");
+  const [arriostrar, setArriostrar] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
@@ -45,9 +50,17 @@ export default function PanelizadorSF() {
 
   const VB_W = 1000, VB_H = 640;
 
+  // reglas efectivas = base PMD + configuración del usuario (perfil, modulación, arriostre)
+  const effRules = useMemo(() => {
+    const base = RULES;
+    const kgM = (CATALOGO_PGC.find((p) => p.nombre === perfilMontante) || {}).kg ?? base.kgPGC;
+    const kgS = (CATALOGO_PGU.find((p) => p.nombre === perfilSolera) || {}).kg ?? base.kgPGU;
+    return { ...base, studSpacing: modul, perfilMontante, perfilSolera, kgPGC: kgM, kgPGU: kgS, arriostrar };
+  }, [modul, perfilMontante, perfilSolera, arriostrar]);
+
   const result = useMemo(
-    () => buildAll(walls, openings, roofs, fixtures, ppm, vincha, RULES),
-    [walls, openings, roofs, fixtures, ppm, vincha]
+    () => buildAll(walls, openings, roofs, fixtures, ppm, vincha, effRules),
+    [walls, openings, roofs, fixtures, ppm, vincha, effRules]
   );
 
   // ================= DESHACER / REHACER (historial de escena) =================
@@ -265,7 +278,7 @@ export default function PanelizadorSF() {
       return mesh;
     };
 
-    const H = RULES.panelHeight;
+    const H = effRules.panelHeight;
     const topH = H + (vincha ? 0.6 : 0);
 
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
@@ -311,12 +324,12 @@ export default function PanelizadorSF() {
           if (o.sill > 0.05) addBox(g2, wo, 0.08, 0.1, cxo, o.sill - 0.04, 0, mSteel);
         }
         // cripples: los verticales siguen sobre el dintel y bajo el antepecho
-        const g0p = Math.ceil((p.a + 0.001) / RULES.studSpacing) * RULES.studSpacing;
+        const g0p = Math.ceil((p.a + 0.001) / effRules.studSpacing) * effRules.studSpacing;
         for (const o of p.ops) {
-          for (let gx = g0p; gx < p.b - 0.05; gx += RULES.studSpacing) {
+          for (let gx = g0p; gx < p.b - 0.05; gx += effRules.studSpacing) {
             if (gx > o.x1 + 0.03 && gx < o.x2 - 0.03) {
-              const topLen = H - (o.headBot + RULES.headerDepth);
-              if (topLen > 0.06) addBox(g2, 0.045, topLen, 0.1, gx, o.headBot + RULES.headerDepth + topLen / 2, 0, mSteel);
+              const topLen = H - (o.headBot + effRules.headerDepth);
+              if (topLen > 0.06) addBox(g2, 0.045, topLen, 0.1, gx, o.headBot + effRules.headerDepth + topLen / 2, 0, mSteel);
               if (o.sill > 0.1) addBox(g2, 0.045, o.sill - 0.05, 0.1, gx, (o.sill - 0.05) / 2, 0, mSteel);
             }
           }
@@ -325,13 +338,13 @@ export default function PanelizadorSF() {
 
       if (vincha) {
         // viga tubo (cajón) + murito de carga con sus montantes verticales a modulación completa
-        addBox(g2, L, RULES.vigaTuboH, 0.1, L / 2, H + RULES.vigaTuboH / 2, 0, realistic ? mSteel : mHeader);
-        const y0 = H + RULES.vigaTuboH;
+        addBox(g2, L, effRules.vigaTuboH, 0.1, L / 2, H + effRules.vigaTuboH / 2, 0, realistic ? mSteel : mHeader);
+        const y0 = H + effRules.vigaTuboH;
         addBox(g2, L, 0.05, 0.1, L / 2, y0 + 0.025, 0, mSteel);
-        addBox(g2, L, 0.05, 0.1, L / 2, y0 + RULES.vinchaHeight - 0.025, 0, mSteel);
-        for (let gx = 0; ; gx += RULES.studSpacing) {
+        addBox(g2, L, 0.05, 0.1, L / 2, y0 + effRules.vinchaHeight - 0.025, 0, mSteel);
+        for (let gx = 0; ; gx += effRules.studSpacing) {
           const x = Math.min(gx, L - 0.025);
-          addBox(g2, 0.045, RULES.vinchaHeight - 0.1, 0.1, Math.max(0.025, x), y0 + RULES.vinchaHeight / 2, 0, mSteel);
+          addBox(g2, 0.045, effRules.vinchaHeight - 0.1, 0.1, Math.max(0.025, x), y0 + effRules.vinchaHeight / 2, 0, mSteel);
           if (gx >= L) break;
         }
       }
@@ -405,7 +418,7 @@ export default function PanelizadorSF() {
         inner.rotation.z = ang;
         outer.add(inner); root.add(outer);
 
-        const nCab = Math.floor(info.width / RULES.studSpacing) + 1;
+        const nCab = Math.floor(info.width / effRules.studSpacing) + 1;
         for (let i = 0; i < nCab; i++) {
           const z = -info.width / 2 + (i * info.width) / Math.max(1, nCab - 1);
           addBox(inner, info.slopeLen, 0.1, 0.045, info.slopeLen / 2, 0.05, z, mSteel);
@@ -938,7 +951,7 @@ export default function PanelizadorSF() {
       csv += `${r.perfil};${r.largo.toFixed(2).replace(".", ",")};${r.cant};${[...r.usos].join(" / ")}\n`;
     }
     csv += `\nResumen\n`;
-    for (const perfil of [PGC, PGU]) {
+    for (const perfil of [result.perfiles.montante, result.perfiles.solera]) {
       const p = result.packing[perfil];
       csv += `${perfil};${p.totalML.toFixed(1).replace(".", ",")} ml;${p.bars} barras de 6 m;scrap ${p.scrap.toFixed(1).replace(".", ",")}%\n`;
     }
@@ -971,8 +984,8 @@ export default function PanelizadorSF() {
   }
 
   const totalMuros = walls.reduce((s, w) => s + dist(w.a, w.b) / ppm, 0);
-  const mlPGC = result.packing[PGC].totalML;
-  const mlPGU = result.packing[PGU].totalML;
+  const mlPGC = result.packing[result.perfiles.montante].totalML;
+  const mlPGU = result.packing[result.perfiles.solera].totalML;
   const totalChapas = result.chapas.reduce((s, c) => s + c.cant, 0);
 
   const w = VB_W / zoom, h = VB_H / zoom;
@@ -1132,6 +1145,32 @@ export default function PanelizadorSF() {
                 Ver placas OSB
               </label>
             </div>
+          </Card>
+
+          {/* ===== Configuración de perfil / modulación / arriostre (P6, P4) ===== */}
+          <Card className="p-2.5 flex flex-wrap items-end gap-3 text-xs">
+            <span className="text-[10px] font-bold uppercase tracking-wider self-center" style={{ color: C.gray }}>⚙ Tipología</span>
+            <Field label="Montante (PGC)">
+              <select value={perfilMontante} onChange={(e) => setPerfilMontante(e.target.value)} className="px-2 py-1.5 rounded-lg">
+                {CATALOGO_PGC.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre} · {p.kg} kg/m</option>)}
+              </select>
+            </Field>
+            <Field label="Solera (PGU)">
+              <select value={perfilSolera} onChange={(e) => setPerfilSolera(e.target.value)} className="px-2 py-1.5 rounded-lg">
+                {CATALOGO_PGU.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre} · {p.kg} kg/m</option>)}
+              </select>
+            </Field>
+            <Field label="Modulación">
+              <select value={modul} onChange={(e) => setModul(parseFloat(e.target.value))} className="px-2 py-1.5 rounded-lg">
+                <option value={0.4}>400 mm</option>
+                <option value={0.6}>600 mm</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer font-medium" style={{ background: arriostrar ? C.blueSoft : C.paper, color: arriostrar ? C.blueDark : C.gray, border: `1px solid ${arriostrar ? "transparent" : C.line}` }}>
+              <input type="checkbox" checked={arriostrar} onChange={(e) => setArriostrar(e.target.checked)} />
+              Arriostrar en X (fleje)
+            </label>
+            <span className="self-center" style={{ color: C.gray }}>PMD: PGC 100×1,2 · PGU 100×0,9 · 400 mm · rigidiza con OSB</span>
           </Card>
 
           {/* largo exacto del tramo en curso */}
@@ -1672,12 +1711,12 @@ export default function PanelizadorSF() {
 
           {result.panels.map((p) => {
             const sc = 46;
-            const H = RULES.panelHeight;
+            const H = effRules.panelHeight;
             const pw = p.len * sc, ph = H * sc;
-            const extra = vincha ? (RULES.vigaTuboH + RULES.vinchaHeight) * sc : 0;
-            const totalH = vincha ? H + RULES.vigaTuboH + RULES.vinchaHeight : H;
-            const osbRows = showOsb ? osbLayoutForPanel(p, vincha, RULES) : [];
-            const lapW = showOsb && !p.last ? RULES.osbLap * sc : 0;
+            const extra = vincha ? (effRules.vigaTuboH + effRules.vinchaHeight) * sc : 0;
+            const totalH = vincha ? H + effRules.vigaTuboH + effRules.vinchaHeight : H;
+            const osbRows = showOsb ? osbLayoutForPanel(p, vincha, effRules) : [];
+            const lapW = showOsb && !p.last ? effRules.osbLap * sc : 0;
             return (
               <Card key={p.id} className="p-3.5 fade-in">
                 <div className="flex items-center justify-between mb-2.5">
@@ -1695,19 +1734,19 @@ export default function PanelizadorSF() {
                     {/* viga tubo + murito de carga, dentro del mismo panel */}
                     {vincha && (
                       <g>
-                        <rect x={0} y={-RULES.vigaTuboH * sc} width={pw} height={RULES.vigaTuboH * sc} fill={C.blueSoft} stroke={C.blue} strokeWidth={2} />
-                        <rect x={0} y={-(RULES.vigaTuboH + RULES.vinchaHeight) * sc} width={pw} height={RULES.vinchaHeight * sc} fill="#FAFAF7" stroke={C.ink} strokeWidth={2} />
+                        <rect x={0} y={-effRules.vigaTuboH * sc} width={pw} height={effRules.vigaTuboH * sc} fill={C.blueSoft} stroke={C.blue} strokeWidth={2} />
+                        <rect x={0} y={-(effRules.vigaTuboH + effRules.vinchaHeight) * sc} width={pw} height={effRules.vinchaHeight * sc} fill="#FAFAF7" stroke={C.ink} strokeWidth={2} />
                         {(() => {
                           // murito: modulación PROPIA cada 40 desde su borde, continua sobre los vanos
                           const xs = [];
-                          for (let gx = 0; gx < p.len - 0.05; gx += RULES.studSpacing) xs.push(gx);
+                          for (let gx = 0; gx < p.len - 0.05; gx += effRules.studSpacing) xs.push(gx);
                           xs.push(p.len);
                           return xs.map((lx, i) => (
-                            <line key={`mc${i}`} x1={lx * sc} y1={-(RULES.vigaTuboH + RULES.vinchaHeight) * sc + 2} x2={lx * sc} y2={-RULES.vigaTuboH * sc - 2} stroke={C.ink} strokeWidth={1.4} />
+                            <line key={`mc${i}`} x1={lx * sc} y1={-(effRules.vigaTuboH + effRules.vinchaHeight) * sc + 2} x2={lx * sc} y2={-effRules.vigaTuboH * sc - 2} stroke={C.ink} strokeWidth={1.4} />
                           ));
                         })()}
-                        <text x={pw + 3} y={-RULES.vigaTuboH * sc + 8} fontSize={8} fill={C.blue} fontFamily="ui-monospace, monospace">VT</text>
-                        <text x={pw + 3} y={-(RULES.vigaTuboH + RULES.vinchaHeight) * sc + 10} fontSize={8} fill={C.gray} fontFamily="ui-monospace, monospace">MC</text>
+                        <text x={pw + 3} y={-effRules.vigaTuboH * sc + 8} fontSize={8} fill={C.blue} fontFamily="ui-monospace, monospace">VT</text>
+                        <text x={pw + 3} y={-(effRules.vigaTuboH + effRules.vinchaHeight) * sc + 10} fontSize={8} fill={C.gray} fontFamily="ui-monospace, monospace">MC</text>
                       </g>
                     )}
                     {/* montantes */}
@@ -1720,19 +1759,19 @@ export default function PanelizadorSF() {
                       return (
                         <g key={i}>
                           <rect x={o.lx1 * sc} y={oy} width={(o.lx2 - o.lx1) * sc} height={o.height * sc} fill="#fff" stroke={C.orange} strokeWidth={2.5} />
-                          <rect x={Math.max(0, o.lx1 * sc - 4)} y={oy - RULES.headerDepth * sc} width={(o.lx2 - o.lx1) * sc + 8} height={RULES.headerDepth * sc} fill={C.blueSoft} stroke={C.blue} strokeWidth={1.5} />
+                          <rect x={Math.max(0, o.lx1 * sc - 4)} y={oy - effRules.headerDepth * sc} width={(o.lx2 - o.lx1) * sc + 8} height={effRules.headerDepth * sc} fill={C.blueSoft} stroke={C.blue} strokeWidth={1.5} />
                         </g>
                       );
                     })}
                     {/* cripples: los verticales siguen sobre el dintel y bajo el antepecho */}
                     {(() => {
-                      const g0 = Math.ceil((p.a + 0.001) / RULES.studSpacing) * RULES.studSpacing;
+                      const g0 = Math.ceil((p.a + 0.001) / effRules.studSpacing) * effRules.studSpacing;
                       const out = [];
                       for (const o of p.ops) {
-                        for (let gx = g0; gx < p.b - 0.05; gx += RULES.studSpacing) {
+                        for (let gx = g0; gx < p.b - 0.05; gx += effRules.studSpacing) {
                           const lx = gx - p.a;
                           if (lx > o.lx1 + 0.03 && lx < o.lx2 - 0.03) {
-                            const yDintel = ph - (o.headBot + RULES.headerDepth) * sc;
+                            const yDintel = ph - (o.headBot + effRules.headerDepth) * sc;
                             if (yDintel > 4) out.push(<line key={`ct${o.id}-${gx.toFixed(2)}`} x1={lx * sc} y1={2} x2={lx * sc} y2={yDintel} stroke={C.ink} strokeWidth={1.4} />);
                             if (o.sill > 0.1) out.push(<line key={`cb${o.id}-${gx.toFixed(2)}`} x1={lx * sc} y1={ph - (o.sill - 0.05) * sc} x2={lx * sc} y2={ph - 2} stroke={C.ink} strokeWidth={1.4} />);
                           }
@@ -1764,7 +1803,7 @@ export default function PanelizadorSF() {
                           });
                         })}
                         {osbRows.length > 1 && (
-                          <line x1={0} y1={ph - RULES.osbH * sc} x2={pw} y2={ph - RULES.osbH * sc} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
+                          <line x1={0} y1={ph - effRules.osbH * sc} x2={pw} y2={ph - effRules.osbH * sc} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
                         )}
                         {/* marcas de martillo en esquinas de vanos */}
                         {p.ops.map((o, i) => {
@@ -1792,7 +1831,7 @@ export default function PanelizadorSF() {
                     )}
                     {showOsb && !p.first && (
                       <g>
-                        <line x1={RULES.osbLap * sc} y1={-extra} x2={RULES.osbLap * sc} y2={ph} stroke={C.osb} strokeWidth={1.2} strokeDasharray="2 4" />
+                        <line x1={effRules.osbLap * sc} y1={-extra} x2={effRules.osbLap * sc} y2={ph} stroke={C.osb} strokeWidth={1.2} strokeDasharray="2 4" />
                         <text x={2} y={-(extra + 6)} fontSize={9.5} textAnchor="start" fill={C.osb} fontFamily="ui-monospace, monospace">← recibe solape (fijar en obra)</text>
                       </g>
                     )}
@@ -1817,8 +1856,8 @@ export default function PanelizadorSF() {
                 <div className="mt-2 text-xs flex flex-wrap gap-3" style={{ fontFamily: "ui-monospace, monospace", color: C.gray }}>
                   <span>
                     {(() => {
-                      const pgc = p.pieces.filter((x) => x.perfil === PGC).reduce((s, x) => s + x.cant, 0);
-                      const pgu = p.pieces.filter((x) => x.perfil === PGU).reduce((s, x) => s + x.cant, 0);
+                      const pgc = p.pieces.filter((x) => x.perfil === result.perfiles.montante).reduce((s, x) => s + x.cant, 0);
+                      const pgu = p.pieces.filter((x) => x.perfil === result.perfiles.solera).reduce((s, x) => s + x.cant, 0);
                       return `${pgc} pzas PGC · ${pgu} pzas PGU`;
                     })()}
                   </span>
@@ -1852,13 +1891,13 @@ export default function PanelizadorSF() {
                       const y = nCab > 1 ? (i * ph) / (nCab - 1) : ph / 2;
                       return <line key={i} x1={2} y1={y} x2={pw - 2} y2={y} stroke={C.ink} strokeWidth={1.6} />;
                     })}
-                    {showOsb && Array.from({ length: Math.ceil(r.slopeLen / RULES.osbH) - 1 }).map((_, i) => (
-                      <line key={`o${i}`} x1={((i + 1) * RULES.osbH / r.slopeLen) * pw} y1={0} x2={((i + 1) * RULES.osbH / r.slopeLen) * pw} y2={ph} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
+                    {showOsb && Array.from({ length: Math.ceil(r.slopeLen / effRules.osbH) - 1 }).map((_, i) => (
+                      <line key={`o${i}`} x1={((i + 1) * effRules.osbH / r.slopeLen) * pw} y1={0} x2={((i + 1) * effRules.osbH / r.slopeLen) * pw} y2={ph} stroke={C.osb} strokeWidth={1.8} strokeDasharray="7 5" />
                     ))}
                   </svg>
                 </div>
                 <div className="mt-2 text-xs font-mono" style={{ color: C.gray }}>
-                  {nCab} cabios PGC de {(r.slopeLen - RULES.studDeduct).toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
+                  {nCab} cabios PGC de {(r.slopeLen - effRules.studDeduct).toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
                 </div>
               </Card>
             );
@@ -1900,8 +1939,8 @@ export default function PanelizadorSF() {
         <div className="p-3 md:p-4 flex flex-col gap-4 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
             {[
-              [PGC, mlPGC, result.packing[PGC].bars, mlPGC * RULES.kgPGC, result.packing[PGC].scrap],
-              [PGU, mlPGU, result.packing[PGU].bars, mlPGU * RULES.kgPGU, result.packing[PGU].scrap],
+              [result.perfiles.montante, mlPGC, result.packing[result.perfiles.montante].bars, mlPGC * effRules.kgPGC, result.packing[result.perfiles.montante].scrap],
+              [result.perfiles.solera, mlPGU, result.packing[result.perfiles.solera].bars, mlPGU * effRules.kgPGU, result.packing[result.perfiles.solera].scrap],
             ].map(([perfil, ml, bars, kg, scrap]) => (
               <Card key={perfil} className="p-3.5" style={{ borderTop: `3px solid ${C.blue}` }}>
                 <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.gray }}>{perfil}</div>
@@ -1939,6 +1978,23 @@ export default function PanelizadorSF() {
               </div>
               <div className="text-[11px] mt-1" style={{ color: C.gray }}>Estimado — verificar con plano de instalaciones</div>
             </Card>
+            <Card className="p-3.5" style={{ borderTop: `3px solid ${C.ink}` }}>
+              <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.ink }}>Fijaciones y anclajes</div>
+              <div className="text-xs font-mono mt-1.5 flex flex-col gap-0.5" style={{ color: C.ink }}>
+                <span>🔩 ~{result.fijaciones.tornillosEstructura} tornillos Nº8 (estructura)</span>
+                <span>🪵 ~{result.fijaciones.tornillosOsb} tornillos Nº8 (OSB @150/300)</span>
+                <span>⚓ {result.fijaciones.anclajes} anclajes a platea</span>
+              </div>
+              <div className="text-[11px] mt-1" style={{ color: C.gray }}>Estimado de compra (norma AISI / manual)</div>
+            </Card>
+            {result.arriostre.activo && (
+              <Card className="p-3.5" style={{ borderTop: `3px solid ${C.green}` }}>
+                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.green }}>Arriostramiento en X</div>
+                <div className="text-2xl font-extrabold font-mono mt-0.5" style={{ color: C.ink }}>{result.arriostre.flejeML.toFixed(1)} <span className="text-sm font-bold" style={{ color: C.gray }}>ml</span></div>
+                <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>{result.arriostre.panes} paños · fleje {(result.arriostre.flejeAncho * 1000).toFixed(0)} mm a 45°</div>
+                <div className="text-[11px] mt-0.5" style={{ color: C.gray }}>Cruz de San Andrés · Tf = W/cos α</div>
+              </Card>
+            )}
           </div>
 
           {vincha && walls.length > 0 && (
@@ -1980,7 +2036,7 @@ export default function PanelizadorSF() {
               </table>
             </Card>
             <div className="text-xs mt-2" style={{ color: C.gray }}>
-              Optimización por First-Fit Decreasing en barras de 6,00 m. Pesos estimados: PGC {RULES.kgPGC} kg/ml · PGU {RULES.kgPGU} kg/ml. OSB por superficie neta (descontando vanos) + 10% desperdicio. Verificar despiece de dinteles, nudos y solapes de chapa con la documentación de obra antes de cortar.
+              Optimización por First-Fit Decreasing en barras de 6,00 m. Pesos estimados: PGC {effRules.kgPGC} kg/ml · PGU {effRules.kgPGU} kg/ml. OSB por superficie neta (descontando vanos) + 10% desperdicio. Verificar despiece de dinteles, nudos y solapes de chapa con la documentación de obra antes de cortar.
             </div>
           </div>
         </div>
@@ -2029,7 +2085,7 @@ export default function PanelizadorSF() {
                   <div className="flex flex-wrap gap-2">
                     {result.osbPlan.sheets.map((sh, i) => {
                       const sc3 = 38;
-                      const sw = RULES.osbW * sc3, shh = RULES.osbH * sc3;
+                      const sw = effRules.osbW * sc3, shh = effRules.osbH * sc3;
                       return (
                         <div key={i} className="flex flex-col items-center">
                           <svg viewBox={`-1 -1 ${sw + 2} ${shh + 2}`} style={{ width: sw + 2 }}>
@@ -2070,7 +2126,7 @@ export default function PanelizadorSF() {
                   <Card key={p.id} className="p-3.5 fade-in">
                     <div className="flex items-center justify-between mb-2">
                       <Chip color={C.ink} soft={false} className="text-xs px-2.5 py-1">FICHA {p.id}</Chip>
-                      <div className="text-xs font-mono" style={{ color: C.gray }}>{p.len.toFixed(2)} × {(vincha ? RULES.panelHeight + RULES.vigaTuboH + RULES.vinchaHeight : RULES.panelHeight).toFixed(2)} m{vincha ? " · panel + viga tubo + murito" : ""} · muro #{p.wallId}</div>
+                      <div className="text-xs font-mono" style={{ color: C.gray }}>{p.len.toFixed(2)} × {(vincha ? effRules.panelHeight + effRules.vigaTuboH + effRules.vinchaHeight : effRules.panelHeight).toFixed(2)} m{vincha ? " · panel + viga tubo + murito" : ""} · muro #{p.wallId}</div>
                     </div>
                     <table className="w-full text-xs font-mono">
                       <thead>
@@ -2094,10 +2150,10 @@ export default function PanelizadorSF() {
                     </table>
                     {/* instructivo de corte OSB */}
                     {(() => {
-                      const cut = osbPiecesForPanel(p, vincha, RULES);
+                      const cut = osbPiecesForPanel(p, vincha, effRules);
                       if (cut.pieces.length === 0) return null;
                       const sc2 = 42;
-                      const dw = (cut.end - cut.start) * sc2, dh = (RULES.panelHeight + (vincha ? RULES.vigaTuboH + RULES.vinchaHeight : 0)) * sc2;
+                      const dw = (cut.end - cut.start) * sc2, dh = (effRules.panelHeight + (vincha ? effRules.vigaTuboH + effRules.vinchaHeight : 0)) * sc2;
                       return (
                         <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${C.grid}` }}>
                           <div className="text-xs font-semibold mb-1" style={{ color: C.osb }}>Instructivo de corte OSB — {cut.pieces.length} placas</div>
@@ -2112,7 +2168,7 @@ export default function PanelizadorSF() {
                                     {pc.notches.map((n, k) => (
                                       <rect key={k} x={x + n.dx * sc2} y={y + h2 - (n.dy + n.h) * sc2} width={n.w * sc2} height={n.h * sc2} fill="#fff" stroke={C.orange} strokeWidth={1.5} strokeDasharray="4 3" />
                                     ))}
-                                    {pc.lap && <rect x={x + w2 - RULES.osbLap * sc2} y={y} width={RULES.osbLap * sc2} height={h2} fill="rgba(184,134,11,0.28)" />}
+                                    {pc.lap && <rect x={x + w2 - effRules.osbLap * sc2} y={y} width={effRules.osbLap * sc2} height={h2} fill="rgba(184,134,11,0.28)" />}
                                     <text x={x + w2 / 2} y={y + h2 / 2 - 3} fontSize={11} fontWeight="bold" textAnchor="middle" fill={C.ink} fontFamily="ui-monospace, monospace">{pc.tag}</text>
                                     <text x={x + w2 / 2} y={y + h2 / 2 + 10} fontSize={8.5} textAnchor="middle" fill={C.ink} fontFamily="ui-monospace, monospace">{pc.w.toFixed(2)}×{pc.h.toFixed(2)}</text>
                                   </g>
@@ -2169,7 +2225,7 @@ export default function PanelizadorSF() {
                     <span className="text-sm font-bold" style={{ color: C.ink }}>Techo {r.slope}%</span>
                   </div>
                   <div className="text-xs font-mono" style={{ color: C.ink }}>
-                    {r.n} paneles de {r.slopeLen.toFixed(2)} × {r.pw.toFixed(2)} m · {r.cabios} cabios PGC de {(r.slopeLen - RULES.studDeduct).toFixed(2)} m + 2 cabezales PGU de {r.pw.toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
+                    {r.n} paneles de {r.slopeLen.toFixed(2)} × {r.pw.toFixed(2)} m · {r.cabios} cabios PGC de {(r.slopeLen - effRules.studDeduct).toFixed(2)} m + 2 cabezales PGU de {r.pw.toFixed(2)} m por panel · {r.nCh} chapas de {(r.slopeLen + 0.1).toFixed(2)} m
                   </div>
                   <div className="text-xs mt-1.5" style={{ color: C.osb }}>OSB de techo: trabar juntas entre paneles adyacentes y dejar vuelo de 0,30 m para coser las uniones en obra. Rotular paneles {r.tag}-1 a {r.tag}-{r.n}.</div>
                 </Card>

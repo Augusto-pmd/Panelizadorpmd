@@ -16,7 +16,7 @@
 // engine.js — orquestador + barrel. Re-exporta el motor modularizado
 // (rules, geometry, dxf, panelize, osb) para que la UI importe desde un solo lugar.
 
-import { FIXTYPES, PGC, PGU } from "./rules";
+import { FIXTYPES } from "./rules";
 import type { Rules } from "./rules";
 import { dist, detectJoints } from "./geometry";
 import { panelizeWall } from "./panelize";
@@ -24,7 +24,7 @@ import { packOsbSheets } from "./osb";
 import type { Wall, Opening, Roof, Fixture } from "./types";
 
 // --- barrel: re-exporta los submódulos ---
-export { C, RULES, FIXTYPES, PGC, PGU, TUBO, SNAP_PX } from "./rules";
+export { C, RULES, FIXTYPES, PGC, PGU, TUBO, SNAP_PX, CATALOGO_PGC, CATALOGO_PGU } from "./rules";
 export { dist, projectOnSegment, detectJoints } from "./geometry";
 export { parseDxf } from "./dxf";
 export { panelizeWall } from "./panelize";
@@ -80,8 +80,8 @@ export function buildAll(
     const cabios = Math.round(pw / R.studSpacing) + 1;
     const tag = `T${idx + 1}`;
     for (let i = 0; i < n; i++) {
-      pieces.push({ perfil: PGC, largo: slopeLen - R.studDeduct, cant: cabios, uso: "Cabio panel techo", panel: tag });
-      pieces.push({ perfil: PGU, largo: pw, cant: 2, uso: "Cabezal panel techo", panel: tag });
+      pieces.push({ perfil: R.perfilMontante, largo: slopeLen - R.studDeduct, cant: cabios, uso: "Cabio panel techo", panel: tag });
+      pieces.push({ perfil: R.perfilSolera, largo: pw, cant: 2, uso: "Cabezal panel techo", panel: tag });
     }
     const nCh = Math.ceil(width / R.chapaUtil);
     const chL = Math.round((slopeLen + 0.1) * 100) / 100;
@@ -139,8 +139,8 @@ export function buildAll(
   const cutList = Object.values(agg).sort((a, b) => a.perfil.localeCompare(b.perfil) || b.largo - a.largo);
 
   // ---- optimización en barras de 6 m (FFD)
-  const packing = {};
-  for (const perfil of [PGC, PGU]) {
+  const packing: Record<string, { bars: number; totalML: number; scrap: number }> = {};
+  for (const perfil of [R.perfilMontante, R.perfilSolera]) {
     const items = [];
     for (const r of cutList.filter((c) => c.perfil === perfil)) {
       for (let i = 0; i < r.cant; i++) items.push(r.largo);
@@ -165,5 +165,32 @@ export function buildAll(
     };
   }
 
-  return { panels, cutList, packing, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, instal };
+  // ---- P3: tornillería y anclajes a fundación (estimado de compra)
+  let totalStuds = 0;
+  for (const p of panels) for (const s of p.studs) totalStuds += s.qty;
+  const osbSheetsTot = osbPlan.sheets.length + osbRoofSheets;
+  const tornOsbPorPlaca = Math.ceil(
+    (2 * (R.osbW + R.osbH)) / R.tornilloOsbBorde + (R.osbW / R.studSpacing) * (R.osbH / R.tornilloOsbCampo)
+  );
+  let anclajes = 0;
+  for (const p of panels) anclajes += Math.max(2, Math.ceil(p.len / R.anclajePaso) + 1);
+  const fijaciones = {
+    tornillosEstructura: totalStuds * 4,          // Nº8, ~2 por unión × 2 soleras
+    tornillosOsb: osbSheetsTot * tornOsbPorPlaca, // Nº8 @150 borde / 300 campo
+    anclajes,                                     // varilla química o fleje, esquinas + cada 1,2–1,5 m
+  };
+
+  // ---- P4: arriostramiento en cruz de San Andrés (opcional)
+  let flejeML = 0;
+  if (R.arriostrar) {
+    for (const p of panels) flejeML += 2 * Math.hypot(p.len, R.panelHeight); // dos diagonales por paño
+  }
+  const arriostre = {
+    activo: !!R.arriostrar,
+    panes: panels.length,
+    flejeML,
+    flejeAncho: R.flejeAncho,
+  };
+
+  return { panels, cutList, packing, perfiles: { montante: R.perfilMontante, solera: R.perfilSolera }, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, instal, fijaciones, arriostre };
 }

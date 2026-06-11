@@ -36,6 +36,17 @@ export const RULES = {
   barLen: 6.0,
   kgPGC: 2.16,
   kgPGU: 1.3,
+  // perfiles seleccionables (P6): por defecto los de PMD. El motor usa estos
+  // nombres en las piezas, así el cómputo y las fichas reflejan el perfil elegido.
+  perfilMontante: "PGC 100×1.2",
+  perfilSolera: "PGU 100×0.9",
+  // arriostramiento en cruz de San Andrés (P4): off por defecto (PMD rigidiza con OSB)
+  arriostrar: false,
+  flejeAncho: 0.032,      // ancho del fleje (m) — mín. norma 32 mm
+  // tornillería y anclajes (P3)
+  tornilloOsbBorde: 0.15, // paso de tornillos en bordes de OSB (m)
+  tornilloOsbCampo: 0.30, // paso de tornillos en el campo (m)
+  anclajePaso: 1.35,      // separación de anclajes a platea (m)
   osbW: 1.22,
   osbH: 2.44,
   osbWaste: 0.1,          // 10% desperdicio
@@ -56,6 +67,18 @@ export const FIXTYPES = {
 export const PGC = "PGC 100×1.2";
 export const PGU = "PGU 100×0.9";
 export const TUBO = "Viga tubo (PGU + 2 PGC + PGU armada)";
+
+// Catálogo de perfiles para el selector (P6). kg/m galvanizado Z275.
+export const CATALOGO_PGC = [
+  { nombre: "PGC 90×0.89", kg: 1.50 },
+  { nombre: "PGC 100×0.89", kg: 1.50 },
+  { nombre: "PGC 100×1.2", kg: 2.16 },
+  { nombre: "PGC 140×1.24", kg: 2.60 },
+];
+export const CATALOGO_PGU = [
+  { nombre: "PGU 100×0.89", kg: 1.22 },
+  { nombre: "PGU 100×0.9", kg: 1.30 },
+];
 
 export const SNAP_PX = 14;
 

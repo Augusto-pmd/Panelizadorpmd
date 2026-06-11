@@ -60,20 +60,24 @@ describe("Reglas constructivas PMD (NO cambiar sin confirmación de Augusto)", (
     expect(caja.cant).toBe(2);
   });
 
-  it("encuentro en T: montante adicional (doble)", () => {
+  it("encuentro en T: montante adicional Triple (3 PGC, manual)", () => {
     const panels = panelizeWall(wallOf("M1", 3), [], { corners: [], tees: [{ wallId: "M1", t: 0.5 }] }, PPM, false, RULES);
-    const tee = panels[0].pieces.find((pc) => pc.uso === "Montante T (doble)");
+    const tee = panels[0].pieces.find((pc) => pc.uso === "Montante T (triple)");
     expect(tee).toBeDefined();
-    expect(tee.cant).toBe(2);
+    expect(tee.cant).toBe(3);
   });
 
-  it("dintel: PGC en caja (2 piezas) con apoyo de 0,10 m por lado", () => {
+  it("dintel: PGC en caja (2 piezas) + solera de dintel PGU, apoyo 0,10 m/lado", () => {
     const op = { id: 1, wallId: "M1", type: "puerta", offset: 1.5, width: 0.9, height: 2.0, sill: 0 };
     const panels = panelizeWall(wallOf("M1", 3), [op], noJoints, PPM, false, RULES);
     const dintel = panels[0].pieces.find((pc) => pc.uso === "Dintel en caja");
     expect(dintel).toBeDefined();
     expect(dintel.cant).toBe(2);
     expect(dintel.largo).toBeCloseTo(op.width + 2 * RULES.headerBearing, 5);
+    // P2: solera de dintel con corte de 10
+    const solDintel = panels[0].pieces.find((pc) => pc.uso === "Solera de dintel (corte 10)");
+    expect(solDintel).toBeDefined();
+    expect(solDintel.cant).toBe(1);
   });
 
   it("viga tubo ARMADA: cajón PGU + 2 PGC + PGU integrado al panel", () => {
