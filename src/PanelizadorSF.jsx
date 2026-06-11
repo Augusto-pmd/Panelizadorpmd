@@ -1219,6 +1219,29 @@ export default function PanelizadorSF() {
     setFixtures((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
+  // ---- export DXF de la planta (muros + vanos) para abrir en Revit/AutoCAD
+  function exportDXF() {
+    if (walls.length === 0) { setStorageMsg("Trazá muros antes de exportar el DXF."); return; }
+    const L = (x1, y1, x2, y2, layer) => `0\nLINE\n8\n${layer}\n10\n${x1.toFixed(3)}\n20\n${y1.toFixed(3)}\n11\n${x2.toFixed(3)}\n21\n${y2.toFixed(3)}\n`;
+    let s = "0\nSECTION\n2\nENTITIES\n";
+    for (const w of walls) s += L(w.a.x / ppm, -w.a.y / ppm, w.b.x / ppm, -w.b.y / ppm, "MUROS");
+    for (const o of openings) {
+      const w = walls.find((x) => x.id === o.wallId); if (!w) continue;
+      const len = dist(w.a, w.b); if (len < 1) continue;
+      const ux = (w.b.x - w.a.x) / len, uy = (w.b.y - w.a.y) / len;
+      const x1 = w.a.x + ux * (o.offset - o.width / 2) * ppm, y1 = w.a.y + uy * (o.offset - o.width / 2) * ppm;
+      const x2 = w.a.x + ux * (o.offset + o.width / 2) * ppm, y2 = w.a.y + uy * (o.offset + o.width / 2) * ppm;
+      s += L(x1 / ppm, -y1 / ppm, x2 / ppm, -y2 / ppm, o.type === "puerta" ? "PUERTAS" : "VENTANAS");
+    }
+    s += "0\nENDSEC\n0\nEOF\n";
+    const blob = new Blob([s], { type: "application/dxf" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${slugify(projName) || "planta"}-pmd.dxf`;
+    a.click(); URL.revokeObjectURL(a.href);
+    setStorageMsg("DXF exportado (capas MUROS/PUERTAS/VENTANAS, en metros). Importable en Revit/AutoCAD.");
+  }
+
   function exportCSV() {
     let csv = "Perfil;Largo (m);Cantidad;Usos\n";
     for (const r of result.cutList) {
@@ -1417,6 +1440,7 @@ export default function PanelizadorSF() {
               <input type="file" accept=".dxf" className="hidden" onChange={loadDxf} />
             </label>
             {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Detecta muros desde la imagen (planos limpios)">🔍 Autodetectar muros</Btn>}
+            {walls.length > 0 && <Btn onClick={exportDXF} data-tip="Exporta la planta a DXF (Revit/AutoCAD)">📤 Exportar DXF</Btn>}
             {bg && (
               <label className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: C.paper }}>
                 <span style={{ color: C.gray }}>Opacidad plano</span>
