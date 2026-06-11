@@ -302,15 +302,22 @@ export default function PanelizadorSF() {
 
     const H = effRules.panelHeight;
     const topH = H + (vincha ? 0.6 : 0);
-    // altura de la cara inferior del techo en un punto (x,z) en metros — para que el muro crezca (tímpano)
+    // altura a la que crece el muro en un punto (x,z): tímpano (sigue la pendiente)
+    // o parapeto (PLANO, tapa la chapa inclinada oculta) según el paño.
     const roofHeightAt = (wx, wz) => {
       let h = topH;
       for (const r of roofs) {
         const rx = r.x / ppm, rz = r.y / ppm, rw = r.w / ppm, rh = r.h / ppm;
         if (wx < rx - 0.05 || wx > rx + rw + 0.05 || wz < rz - 0.05 || wz > rz + rh + 0.05) continue;
         const ang = Math.atan((r.slope || 0) / 100), rise = r.rise || 1;
-        const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
-        h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
+        if (r.parapeto) {
+          // parapeto: altura PLANA = borde alto de la chapa + remate, tapando la pendiente
+          const run = r.dir === "x" ? rw : rh;
+          h = Math.max(h, topH + run * Math.tan(ang) + 0.2);
+        } else {
+          const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
+          h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
+        }
       }
       return h;
     };
@@ -408,12 +415,17 @@ export default function PanelizadorSF() {
         }
       }
 
-      // tímpano: el muro CRECE hasta la cara inferior del techo (montantes que suben con la pendiente)
+      // tímpano/parapeto: el muro CRECE hasta el techo (sigue la pendiente) o plano (parapeto)
       if (roofs.length) {
         for (let gx = 0; gx <= L + 1e-3; gx += effRules.studSpacing) {
           const gxl = Math.min(gx, L);
           const rHt = roofHeightAt(ax + ux * gxl, az + uz * gxl);
           if (rHt > topH + 0.06) addProfile(g2, "y", rHt - topH, gxl, topH + (rHt - topH) / 2, 0, mSteel);
+        }
+        // remate del parapeto: si el muro crece PLANO, cerrar con solera de coronamiento
+        const rA = roofHeightAt(ax, az), rB = roofHeightAt(ax + ux * L, az + uz * L);
+        if (rA > topH + 0.06 && Math.abs(rA - rB) < 0.02) {
+          addProfile(g2, "x", L, L / 2, rA - FL / 2, 0, mSteel, 0.1, true);
         }
       }
 
@@ -916,6 +928,9 @@ export default function PanelizadorSF() {
     let rs = [];
     if (autoRoof.tipo === "1agua") {
       rs = [{ id: idRef.current++, x, y, w, h, slope, dir: w >= h ? "x" : "y", rise: 1 }];
+    } else if (autoRoof.tipo === "parapeto") {
+      // techo de chapa OCULTO: chapa inclinada adentro, parapeto plano por fuera tapando la pendiente
+      rs = [{ id: idRef.current++, x, y, w, h, slope, dir: w >= h ? "x" : "y", rise: 1, parapeto: true }];
     } else if (autoRoof.tipo === "2aguas-h") {
       // cumbrera horizontal: dos faldas que suben hacia la línea central (y + h/2)
       rs = [
@@ -930,7 +945,8 @@ export default function PanelizadorSF() {
       ];
     }
     setRoofs(rs);
-    setStorageMsg(`Techo ${autoRoof.tipo === "1agua" ? "a un agua" : "a dos aguas"} generado sobre la planta con alero de ${autoRoof.alero} m. Ajustá pendientes en la lista de paños o retocá los rectángulos con la goma y redibujando.`);
+    const tn = autoRoof.tipo === "1agua" ? "a un agua" : autoRoof.tipo === "parapeto" ? "plano con parapeto (chapa oculta)" : "a dos aguas";
+    setStorageMsg(`Techo ${tn} generado sobre la planta con alero de ${autoRoof.alero} m. Editá cada paño tocándolo en modo Editar.`);
   }
 
   function applyCalibration() {
@@ -1538,6 +1554,12 @@ export default function PanelizadorSF() {
                       <option value={-1}>{r.dir === "x" ? "← izquierda" : "↑ arriba"}</option>
                     </select>
                   </Field>
+                  <Field label="Tipo">
+                    <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: r.parapeto ? C.blueSoft : C.paper, color: r.parapeto ? C.blueDark : C.gray, border: `1px solid ${r.parapeto ? "transparent" : C.line}` }}>
+                      <input type="checkbox" checked={!!r.parapeto} onChange={(e) => updateRoof(r.id, { parapeto: e.target.checked })} />
+                      Plano por fuera (chapa oculta)
+                    </label>
+                  </Field>
                   {info && <span className="font-mono pb-1.5" style={{ color: info.warn ? C.red : C.gray }}>pend {info.slopeLen.toFixed(2)} m · {info.n} paneles · {info.nCh} chapas</span>}
                   <Btn variant="danger" size="sm" onClick={() => { setRoofs((rs) => rs.filter((x) => x.id !== r.id)); setSelRoof(null); }}>🗑 Borrar paño</Btn>
                 </div>
@@ -1573,6 +1595,7 @@ export default function PanelizadorSF() {
                     { k: "1agua", label: "1 agua", icon: <path d="M3 17 L21 7 L21 17 Z" /> },
                     { k: "2aguas-h", label: "2 aguas ↔", icon: <path d="M3 16 L12 8 L21 16 Z" /> },
                     { k: "2aguas-v", label: "2 aguas ↕", icon: <path d="M3 8 L12 16 L21 8 L21 8 M3 8 L3 16 L21 16 L21 8" /> },
+                    { k: "parapeto", label: "Plano (chapa oculta)", icon: <path d="M3 9 L21 9 M4 9 L4 16 L20 16 L20 9 M6 14 L18 11" /> },
                   ].map((t) => {
                     const on = autoRoof.tipo === t.k;
                     return (
