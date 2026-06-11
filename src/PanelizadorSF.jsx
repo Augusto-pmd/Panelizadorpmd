@@ -457,11 +457,20 @@ export default function PanelizadorSF() {
         if (!info) return;
         const x0 = r.x / ppm, z0 = r.y / ppm, wM = r.w / ppm, hM = r.h / ppm;
         const ang = Math.atan((r.slope || 0) / 100);
+        const rise = r.rise || 1;
+        // la falda pivota en el ALERO (lado bajo) y sube hacia la cumbrera (rise).
         const outer = new THREE.Group();
-        if (r.dir === "x") { outer.position.set(x0, topH, z0 + hM / 2); }
-        else { outer.position.set(x0 + wM / 2, topH, z0); outer.rotation.y = -Math.PI / 2; }
+        if (r.dir === "x") {
+          // alero en x0 (rise +1) o x0+wM (rise -1); ridge en el opuesto
+          outer.position.set(rise > 0 ? x0 : x0 + wM, topH, z0 + hM / 2);
+          outer.rotation.y = rise > 0 ? 0 : Math.PI;
+        } else {
+          // alero en z0 (rise +1) o z0+hM (rise -1)
+          outer.position.set(x0 + wM / 2, topH, rise > 0 ? z0 : z0 + hM);
+          outer.rotation.y = rise > 0 ? -Math.PI / 2 : Math.PI / 2;
+        }
         const inner = new THREE.Group();
-        inner.rotation.z = ang;
+        inner.rotation.z = ang; // sube a lo largo de +x local (desde el alero)
         outer.add(inner); root.add(outer);
 
         const nCab = Math.floor(info.width / effRules.studSpacing) + 1;
@@ -655,7 +664,7 @@ export default function PanelizadorSF() {
         const x = Math.min(pendingRoof.x, raw.x), y = Math.min(pendingRoof.y, raw.y);
         const w = Math.abs(raw.x - pendingRoof.x), h = Math.abs(raw.y - pendingRoof.y);
         if (w > 20 && h > 20) {
-          setRoofs((rs) => [...rs, { id: idRef.current++, x, y, w, h, slope: 30, dir: w >= h ? "x" : "y" }]);
+          setRoofs((rs) => [...rs, { id: idRef.current++, x, y, w, h, slope: 30, dir: w >= h ? "x" : "y", rise: 1 }]);
         }
         setPendingRoof(null);
         setHover(null);
@@ -881,16 +890,18 @@ export default function PanelizadorSF() {
     const slope = autoRoof.pendiente || 30;
     let rs = [];
     if (autoRoof.tipo === "1agua") {
-      rs = [{ id: idRef.current++, x, y, w, h, slope, dir: w >= h ? "x" : "y" }];
+      rs = [{ id: idRef.current++, x, y, w, h, slope, dir: w >= h ? "x" : "y", rise: 1 }];
     } else if (autoRoof.tipo === "2aguas-h") {
+      // cumbrera horizontal: dos faldas que suben hacia la línea central (y + h/2)
       rs = [
-        { id: idRef.current++, x, y, w, h: h / 2, slope, dir: "y" },
-        { id: idRef.current++, x, y: y + h / 2, w, h: h / 2, slope, dir: "y" },
+        { id: idRef.current++, x, y, w, h: h / 2, slope, dir: "y", rise: 1 },        // sube hacia +y (cumbrera)
+        { id: idRef.current++, x, y: y + h / 2, w, h: h / 2, slope, dir: "y", rise: -1 }, // sube hacia -y (cumbrera)
       ];
     } else {
+      // cumbrera vertical: dos faldas que suben hacia la línea central (x + w/2)
       rs = [
-        { id: idRef.current++, x, y, w: w / 2, h, slope, dir: "x" },
-        { id: idRef.current++, x: x + w / 2, y, w: w / 2, h, slope, dir: "x" },
+        { id: idRef.current++, x, y, w: w / 2, h, slope, dir: "x", rise: 1 },        // sube hacia +x (cumbrera)
+        { id: idRef.current++, x: x + w / 2, y, w: w / 2, h, slope, dir: "x", rise: -1 }, // sube hacia -x (cumbrera)
       ];
     }
     setRoofs(rs);
