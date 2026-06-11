@@ -28,6 +28,7 @@ export default function PanelizadorSF() {
   const [showOsb, setShowOsb] = useState(true);
   const [showCotas, setShowCotas] = useState(true); // mostrar/ocultar cotas de muros en planta
   const [snapGuides, setSnapGuides] = useState([]); // guías de alineación activas mientras se dibuja
+  const [iaBusy, setIaBusy] = useState(false); // interpretación IA del municipal en curso
   // configuración de perfil / modulación / arriostramiento (P6, P4)
   const [modul, setModul] = useState(0.4);
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
@@ -1110,6 +1111,76 @@ export default function PanelizadorSF() {
     }
   }
 
+  // ---- Interpretar el municipal con IA (Claude visión) → base editable
+  async function interpretarMunicipal() {
+    if (!bg) { setStorageMsg("Cargá primero el municipal (📑 Importar PDF) o una imagen."); return; }
+    let key = "";
+    try { key = localStorage.getItem("pmd_anthropic_key") || ""; } catch (_) {}
+    if (!key) {
+      key = (window.prompt("Pegá tu clave de API de Anthropic (sk-ant-…). Se guarda solo en este navegador.") || "").trim();
+      if (!key) return;
+      try { localStorage.setItem("pmd_anthropic_key", key); } catch (_) {}
+    }
+    const m = bg.match(/^data:(image\/[\w+]+);base64,(.+)$/);
+    if (!m) { setStorageMsg("La imagen del plano no es válida."); return; }
+    setIaBusy(true);
+    setStorageMsg("🤖 Interpretando el municipal con IA… (puede tardar)");
+    const prompt = `Interpretás un plano MUNICIPAL argentino de vivienda unifamiliar. La lámina tiene varias vistas (fachadas, cortes, planilla, carátula); IGNORALAS y enfocate en el dibujo de la PLANTA (planta baja).
+Devolvé SOLO un objeto JSON válido (sin texto antes ni después) con este formato exacto:
+{
+ "escala":"1:100",
+ "muros":[{"a":[x,y],"b":[x,y]}],
+ "vanos":[{"tipo":"puerta|ventana","centro":[x,y],"ancho":m,"alto":m,"antepecho":m}],
+ "ambientes":[{"nombre":"Living","centro":[x,y],"cielorraso":m}],
+ "techo":{"tipo":"parapeto|2aguas|1agua|plano","parapeto_h":m},
+ "superficie_cubierta_m2":number
+}
+Reglas: coordenadas en METROS con 2 decimales, origen (0,0) arriba-izquierda de la planta, x→derecha, y→abajo. Los muros van al EJE (línea central). Usá la PLANILLA DE ILUMINACIÓN Y VENTILACIÓN (lados A×B por local) y las cotas escritas para que las medidas sean exactas. Si en la planta de techos dice "Muro de carga h:0.60/0.20", el techo es "parapeto" con esa altura.`;
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({
+          model: "claude-opus-4-8", max_tokens: 4000,
+          messages: [{ role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
+            { type: "text", text: prompt },
+          ] }],
+        }),
+      });
+      if (!res.ok) throw new Error("API " + res.status + (res.status === 401 ? " (clave inválida)" : ""));
+      const data = await res.json();
+      const txt = (data.content || []).map((c) => c.text || "").join("");
+      const j = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
+      cargarDesdeIA(j);
+    } catch (err) {
+      setStorageMsg("IA: " + (err && err.message ? err.message : err) + ". (Requiere clave válida + conexión.)");
+    } finally { setIaBusy(false); }
+  }
+
+  function cargarDesdeIA(j) {
+    const ppm2 = 50, ox = 120, oy = 100;
+    const P = (mx, my) => ({ x: ox + mx * ppm2, y: oy + my * ppm2 });
+    let id = idRef.current;
+    const ws = (j.muros || []).filter((w) => w.a && w.b).map((w) => ({ id: id++, a: P(w.a[0], w.a[1]), b: P(w.b[0], w.b[1]) }));
+    const os = [];
+    for (const v of (j.vanos || [])) {
+      if (!v.centro) continue;
+      const c = P(v.centro[0], v.centro[1]);
+      let best = null;
+      for (const w of ws) { const pr = projectOnSegment(c, w.a, w.b); if (pr.d < 45 && (!best || pr.d < best.d)) best = { w, ...pr }; }
+      if (best) {
+        const L = dist(best.w.a, best.w.b) / ppm2;
+        os.push({ id: id++, wallId: best.w.id, type: v.tipo === "puerta" ? "puerta" : "ventana", offset: Math.max(0.3, Math.min(L - 0.3, best.t * L)), width: v.ancho || 1.0, height: v.alto || (v.tipo === "puerta" ? 2.05 : 1.1), sill: v.tipo === "puerta" ? 0 : (v.antepecho ?? 1.0) });
+      }
+    }
+    idRef.current = id;
+    setPpm(ppm2); setWalls(ws); setOpenings(os); setFixtures([]); setBg(null);
+    if (j.techo && /parapeto|plano/.test(j.techo.tipo || "")) setMuritoH(Math.max(0.2, j.techo.parapeto_h || 0.6));
+    setZoom(1); setPan({ x: 0, y: 0 }); setTimeout(fitView, 60);
+    setStorageMsg(`🤖 IA: ${ws.length} muros y ${os.length} vanos interpretados${j.superficie_cubierta_m2 ? ` (${j.superficie_cubierta_m2} m² cubierta)` : ""}. Revisá y editá la base.`);
+  }
+
   function loadBg(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -1474,6 +1545,7 @@ export default function PanelizadorSF() {
               <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={loadPdf} />
             </label>
             {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Detecta muros desde la imagen (planos limpios)">🔍 Autodetectar muros</Btn>}
+            {bg && <Btn variant="success" onClick={interpretarMunicipal} disabled={iaBusy} data-tip="Interpreta el municipal con IA → muros, vanos, ambientes">{iaBusy ? "🤖 Interpretando…" : "🤖 Interpretar (IA)"}</Btn>}
             {walls.length > 0 && <Btn onClick={exportDXF} data-tip="Exporta la planta a DXF (Revit/AutoCAD)">📤 Exportar DXF</Btn>}
             {bg && (
               <label className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: C.paper }}>
