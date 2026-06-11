@@ -26,6 +26,7 @@ export default function PanelizadorSF() {
   const [bgOpacity, setBgOpacity] = useState(0.55);
   const [vincha, setVincha] = useState(true);
   const [showOsb, setShowOsb] = useState(true);
+  const [showCotas, setShowCotas] = useState(true); // mostrar/ocultar cotas de muros en planta
   // configuración de perfil / modulación / arriostramiento (P6, P4)
   const [modul, setModul] = useState(0.4);
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
@@ -1020,11 +1021,16 @@ export default function PanelizadorSF() {
       const ctx = cv.getContext("2d");
       ctx.drawImage(img, 0, 0, cw, ch);
       const data = ctx.getImageData(0, 0, cw, ch).data;
-      const ink = (x, y) => { const i = (y * cw + x) * 4; return data[i + 3] > 40 && (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) < 125; };
-      const minH = Math.max(24, cw * 0.05), minV = Math.max(24, ch * 0.05);
+      // umbral más oscuro: los muros son líneas/bandas negras, no texto gris ni amueblado
+      const ink = (x, y) => { const i = (y * cw + x) * 4; return data[i + 3] > 60 && (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) < 105; };
+      // sólo líneas LARGAS (≥15% del lado): filtra texto, cotas, amueblado, hatch
+      const minH = Math.max(50, cw * 0.15), minV = Math.max(50, ch * 0.15);
+      // un muro tiene espesor: el píxel debe ser parte de una banda (≥2 px) → descarta líneas finas (cotas/texto)
+      const inkH = (x, y) => ink(x, y) && (ink(x, y - 1) || ink(x, y + 1));
+      const inkV = (x, y) => ink(x, y) && (ink(x - 1, y) || ink(x + 1, y));
       const hsegs = [], vsegs = [];
-      for (let y = 0; y < ch; y++) { let x = 0; while (x < cw) { if (ink(x, y)) { let x2 = x; while (x2 < cw && ink(x2, y)) x2++; if (x2 - x >= minH) hsegs.push({ a: x, b: x2, p: y }); x = x2; } else x++; } }
-      for (let x = 0; x < cw; x++) { let y = 0; while (y < ch) { if (ink(x, y)) { let y2 = y; while (y2 < ch && ink(x, y2)) y2++; if (y2 - y >= minV) vsegs.push({ a: y, b: y2, p: x }); y = y2; } else y++; } }
+      for (let y = 1; y < ch - 1; y++) { let x = 0; while (x < cw) { if (inkH(x, y)) { let x2 = x; while (x2 < cw && inkH(x2, y)) x2++; if (x2 - x >= minH) hsegs.push({ a: x, b: x2, p: y }); x = x2; } else x++; } }
+      for (let x = 1; x < cw - 1; x++) { let y = 0; while (y < ch) { if (inkV(x, y)) { let y2 = y; while (y2 < ch && inkV(x, y2)) y2++; if (y2 - y >= minV) vsegs.push({ a: y, b: y2, p: x }); y = y2; } else y++; } }
       // junta líneas paralelas cercanas (las dos caras de un muro) en su eje
       const cluster = (segs) => {
         segs.sort((s1, s2) => s1.p - s2.p || s1.a - s2.a);
@@ -1054,7 +1060,7 @@ export default function PanelizadorSF() {
       const pts = [];
       for (const w of newWalls) for (const e of [w.a, w.b]) { const f = pts.find((q) => Math.abs(q.x - e.x) < SN && Math.abs(q.y - e.y) < SN); if (f) { e.x = f.x; e.y = f.y; } else pts.push(e); }
       if (newWalls.length === 0) { setStorageMsg("No detecté muros: probá con un plano más limpio (líneas nítidas, sin amueblar) o trazá a mano."); return; }
-      if (newWalls.length > 250) { setStorageMsg(`Detecté demasiadas líneas (${newWalls.length}); el plano parece muy cargado. Trazá a mano o usá uno más limpio.`); return; }
+      if (newWalls.length > 140) { setStorageMsg(`Detecté demasiadas líneas (${newWalls.length}); el plano parece muy cargado. Trazá a mano o usá uno más limpio.`); return; }
       idRef.current = id;
       setWalls(newWalls); setOpenings([]); setFixtures([]);
       setStorageMsg(`Autodetección: ${newWalls.length} muros propuestos. Revisalos y borrá los sobrantes (modo Goma) o ajustá con Editar.`);
@@ -1410,6 +1416,10 @@ export default function PanelizadorSF() {
               <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: showOsb ? C.blueSoft : C.paper, color: showOsb ? C.blueDark : C.gray, border: `1px solid ${showOsb ? "transparent" : C.line}` }}>
                 <input type="checkbox" checked={showOsb} onChange={(e) => setShowOsb(e.target.checked)} />
                 Ver placas OSB
+              </label>
+              <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: showCotas ? C.blueSoft : C.paper, color: showCotas ? C.blueDark : C.gray, border: `1px solid ${showCotas ? "transparent" : C.line}` }}>
+                <input type="checkbox" checked={showCotas} onChange={(e) => setShowCotas(e.target.checked)} />
+                Ver cotas
               </label>
             </div>
           </Card>
@@ -1840,6 +1850,7 @@ export default function PanelizadorSF() {
                     );
                   }))}
                   {/* cota editable: tocar el número abre el campo para tipear el largo exacto */}
+                  {showCotas && (
                   <g
                     style={{ cursor: "pointer" }}
                     onPointerDown={(e) => { e.stopPropagation(); setEditWall({ id: w2.id, value: L.toFixed(2) }); }}
@@ -1850,6 +1861,7 @@ export default function PanelizadorSF() {
                       {L.toFixed(2)} m
                     </text>
                   </g>
+                  )}
                 </g>
               );
             })}
