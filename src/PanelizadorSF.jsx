@@ -425,7 +425,8 @@ export default function PanelizadorSF() {
         // remate del parapeto: si el muro crece PLANO, cerrar con solera de coronamiento
         const rA = roofHeightAt(ax, az), rB = roofHeightAt(ax + ux * L, az + uz * L);
         if (rA > topH + 0.06 && Math.abs(rA - rB) < 0.02) {
-          addProfile(g2, "x", L, L / 2, rA - FL / 2, 0, mSteel, 0.1, true);
+          addProfile(g2, "x", L, L / 2, rA - FL / 2, 0, mSteel, 0.1, true);     // solera de coronamiento
+          addBox(g2, L, 0.03, 0.14, L / 2, rA + 0.015, 0, mChapa);             // chapa de coronamiento (tapa el parapeto)
         }
       }
 
@@ -1696,6 +1697,11 @@ export default function PanelizadorSF() {
             onPointerUp={onCanvasUp}
             onPointerCancel={onCanvasUp}
           >
+            <defs>
+              <pattern id="parapetoHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="10" stroke={C.blue} strokeWidth="1.4" opacity="0.5" />
+              </pattern>
+            </defs>
             {bg && bgDims && <image href={bg} x={bgDims.x} y={bgDims.y} width={bgDims.w} height={bgDims.h} opacity={bgOpacity} preserveAspectRatio="none" />}
             {!bg && gridLines}
 
@@ -1733,10 +1739,13 @@ export default function PanelizadorSF() {
                       <g transform={`translate(${a.x2},${a.y2})`}><path d={a.hp} /></g>
                     </g>
                   ))}
+                  {r.parapeto && (
+                    <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="url(#parapetoHatch)" stroke={C.ink} strokeWidth={1.6 / zoom} opacity={0.5} />
+                  )}
                   <g>
-                    <rect x={cx - 70 / zoom} y={cy - 10 / zoom} width={140 / zoom} height={16 / zoom} rx={4 / zoom} fill="#FCFBF8" opacity={0.9} />
-                    <text x={cx} y={cy + 2 / zoom} fontSize={11 / zoom} textAnchor="middle" fill={C.ink} fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
-                      {info ? `${info.tag} · ${r.slope}% · pend ${info.slopeLen.toFixed(2)} m` : `${r.slope}%`}
+                    <rect x={cx - 84 / zoom} y={cy - 10 / zoom} width={168 / zoom} height={16 / zoom} rx={4 / zoom} fill="#FCFBF8" opacity={0.92} />
+                    <text x={cx} y={cy + 2 / zoom} fontSize={11 / zoom} textAnchor="middle" fill={r.parapeto ? C.blueDark : C.ink} fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
+                      {r.parapeto ? `${info ? info.tag : ""} · chapa oculta ${r.slope}%` : info ? `${info.tag} · ${r.slope}% · pend ${info.slopeLen.toFixed(2)} m` : `${r.slope}%`}
                     </text>
                   </g>
                   {info && info.warn && (
