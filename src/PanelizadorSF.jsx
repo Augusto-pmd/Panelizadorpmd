@@ -21,6 +21,7 @@ export default function PanelizadorSF() {
   const [calPts, setCalPts] = useState([]);
   const [calInput, setCalInput] = useState("");
   const [bg, setBg] = useState(null);
+  const [bgDims, setBgDims] = useState(null); // {x,y,w,h} para que el plano entre completo
   const [bgOpacity, setBgOpacity] = useState(0.55);
   const [vincha, setVincha] = useState(true);
   const [showOsb, setShowOsb] = useState(true);
@@ -279,6 +280,21 @@ export default function PanelizadorSF() {
       return mesh;
     };
 
+    // Perfil real C (PGC) o U (PGU) como canal abierto: alma + 2 alas (no un tubo macizo).
+    // runAxis "y" = miembro vertical (montante); "x" = horizontal (solera/dintel).
+    const FL = 0.04, TW = 0.012; // ala 40 mm, chapa visual
+    const addProfile = (parent, runAxis, len, x, y, z, mat, web = 0.1) => {
+      if (runAxis === "y") {
+        addBox(parent, TW, len, web, x - FL / 2 + TW / 2, y, z, mat);                 // alma
+        addBox(parent, FL, len, TW, x, y, z + web / 2 - TW / 2, mat);                 // ala +
+        addBox(parent, FL, len, TW, x, y, z - web / 2 + TW / 2, mat);                 // ala -
+      } else {
+        addBox(parent, len, TW, web, x, y - FL / 2 + TW / 2, z, mat);                 // alma
+        addBox(parent, len, FL, TW, x, y, z + web / 2 - TW / 2, mat);                 // ala +
+        addBox(parent, len, FL, TW, x, y, z - web / 2 + TW / 2, mat);                 // ala -
+      }
+    };
+
     const H = effRules.panelHeight;
     const topH = H + (vincha ? 0.6 : 0);
 
@@ -309,20 +325,36 @@ export default function PanelizadorSF() {
       g2.rotation.y = -Math.atan2(uz, ux);
       root.add(g2);
 
-      addBox(g2, L, 0.1, 0.1, L / 2, 0.05, 0, mSteel);
-      addBox(g2, L, 0.1, 0.1, L / 2, H - 0.05, 0, mSteel);
+      // soleras PGU (U) inferior y superior
+      addProfile(g2, "x", L, L / 2, 0.05, 0, mSteel);
+      addProfile(g2, "x", L, L / 2, H - 0.05, 0, mSteel);
 
       const wallPanels = result.panels.filter((p) => p.wallId === w2.id);
       for (const p of wallPanels) {
         for (const s of p.studs) {
           const gx = p.a + s.x;
-          addBox(g2, s.qty > 1 ? 0.1 : 0.045, H - 0.2, 0.1, gx, H / 2, 0, s.qty > 1 ? mBox : mSteel);
+          if (s.qty > 1) {
+            // montante en caja / T: 2 PGC enfrentados
+            addProfile(g2, "y", H - 0.2, gx - 0.012, H / 2, 0, mBox);
+            addProfile(g2, "y", H - 0.2, gx + 0.012, H / 2, 0, mBox);
+          } else {
+            addProfile(g2, "y", H - 0.2, gx, H / 2, 0, mSteel);
+          }
         }
         for (const o of p.ops) {
           if (!(o.x1 >= p.a - 0.01)) continue;
           const cxo = (o.x1 + o.x2) / 2, wo = o.x2 - o.x1;
-          addBox(g2, wo + 0.2, 0.1, 0.1, cxo, o.sill + o.height + 0.05, 0, mHeader);
-          if (o.sill > 0.05) addBox(g2, wo, 0.08, 0.1, cxo, o.sill - 0.04, 0, mSteel);
+          const headBot = o.sill + o.height;
+          // dintel: cajón de 2 PGC (dos C enfrentadas), entre montantes (no sobresale)
+          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09);
+          addProfile(g2, "x", wo + 0.04, cxo, headBot + 0.045, 0, mHeader, 0.09);
+          // jacks que sostienen el dintel, a cada lado del vano
+          if (headBot > 0.14) {
+            addProfile(g2, "y", headBot, o.x1 + 0.03, headBot / 2, 0, mSteel);
+            addProfile(g2, "y", headBot, o.x2 - 0.03, headBot / 2, 0, mSteel);
+          }
+          // antepecho (solera PGU del vano)
+          if (o.sill > 0.05) addProfile(g2, "x", wo, cxo, o.sill - 0.03, 0, mSteel, 0.09);
         }
         // cripples: los verticales siguen sobre el dintel y bajo el antepecho
         const g0p = Math.ceil((p.a + 0.001) / effRules.studSpacing) * effRules.studSpacing;
@@ -330,22 +362,27 @@ export default function PanelizadorSF() {
           for (let gx = g0p; gx < p.b - 0.05; gx += effRules.studSpacing) {
             if (gx > o.x1 + 0.03 && gx < o.x2 - 0.03) {
               const topLen = H - (o.headBot + effRules.headerDepth);
-              if (topLen > 0.06) addBox(g2, 0.045, topLen, 0.1, gx, o.headBot + effRules.headerDepth + topLen / 2, 0, mSteel);
-              if (o.sill > 0.1) addBox(g2, 0.045, o.sill - 0.05, 0.1, gx, (o.sill - 0.05) / 2, 0, mSteel);
+              if (topLen > 0.06) addProfile(g2, "y", topLen, gx, o.headBot + effRules.headerDepth + topLen / 2, 0, mSteel);
+              if (o.sill > 0.1) addProfile(g2, "y", o.sill - 0.05, gx, (o.sill - 0.05) / 2, 0, mSteel);
             }
           }
         }
       }
 
       if (vincha) {
-        // viga tubo (cajón) + murito de carga con sus montantes verticales a modulación completa
-        addBox(g2, L, effRules.vigaTuboH, 0.1, L / 2, H + effRules.vigaTuboH / 2, 0, realistic ? mSteel : mHeader);
+        // viga tubo: cajón armado de 2 PGU + 2 PGC (dos U arriba/abajo + dos C enfrentadas)
+        const yv = H + effRules.vigaTuboH / 2;
+        addProfile(g2, "x", L, L / 2, H + 0.02, 0, mHeader, 0.09);                 // PGU inferior del cajón
+        addProfile(g2, "x", L, L / 2, H + effRules.vigaTuboH - 0.02, 0, mHeader, 0.09); // PGU superior
+        addProfile(g2, "y", effRules.vigaTuboH, L * 0.5 - 0.012, yv, 0, mBox);     // 2 PGC almas
+        addProfile(g2, "y", effRules.vigaTuboH, L * 0.5 + 0.012, yv, 0, mBox);
+        // murito de carga: soleras PGU + montantes PGC a modulación
         const y0 = H + effRules.vigaTuboH;
-        addBox(g2, L, 0.05, 0.1, L / 2, y0 + 0.025, 0, mSteel);
-        addBox(g2, L, 0.05, 0.1, L / 2, y0 + effRules.vinchaHeight - 0.025, 0, mSteel);
+        addProfile(g2, "x", L, L / 2, y0 + 0.025, 0, mSteel);
+        addProfile(g2, "x", L, L / 2, y0 + effRules.vinchaHeight - 0.025, 0, mSteel);
         for (let gx = 0; ; gx += effRules.studSpacing) {
           const x = Math.min(gx, L - 0.025);
-          addBox(g2, 0.045, effRules.vinchaHeight - 0.1, 0.1, Math.max(0.025, x), y0 + effRules.vinchaHeight / 2, 0, mSteel);
+          addProfile(g2, "y", effRules.vinchaHeight - 0.1, Math.max(0.025, x), y0 + effRules.vinchaHeight / 2, 0, mSteel);
           if (gx >= L) break;
         }
       }
@@ -833,9 +870,21 @@ export default function PanelizadorSF() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => setBg(reader.result);
+    reader.onload = () => { setBg(reader.result); setZoom(1); setPan({ x: 0, y: 0 }); };
     reader.readAsDataURL(f);
   }
+
+  // el plano de fondo se escala para entrar completo (contain) y centrado
+  useEffect(() => {
+    if (!bg) { setBgDims(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(VB_W / img.naturalWidth, VB_H / img.naturalHeight);
+      const w = img.naturalWidth * s, h = img.naturalHeight * s;
+      setBgDims({ x: (VB_W - w) / 2, y: (VB_H - h) / 2, w, h });
+    };
+    img.src = bg;
+  }, [bg]);
 
   // ---- importación DXF (Revit, AutoCAD, SketchUp, ArchiCAD exportan a este formato)
   function loadDxf(e) {
@@ -1382,7 +1431,7 @@ export default function PanelizadorSF() {
             onPointerUp={onCanvasUp}
             onPointerCancel={onCanvasUp}
           >
-            {bg && <image href={bg} x={0} y={0} width={VB_W} opacity={bgOpacity} />}
+            {bg && bgDims && <image href={bg} x={bgDims.x} y={bgDims.y} width={bgDims.w} height={bgDims.h} opacity={bgOpacity} preserveAspectRatio="none" />}
             {!bg && gridLines}
 
             {/* techos: paño con cumbrera + flechas de pendiente (agua) */}
