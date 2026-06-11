@@ -1086,6 +1086,30 @@ export default function PanelizadorSF() {
     img.src = bg;
   }
 
+  // importa un PDF (municipal): renderiza la página 1 a imagen y la usa de fondo
+  async function loadPdf(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setStorageMsg("Procesando PDF…");
+    try {
+      const pdfjs = await import("pdfjs-dist");
+      const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+      pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+      const buf = await f.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: buf }).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 2.5 });
+      const cv = document.createElement("canvas");
+      cv.width = viewport.width; cv.height = viewport.height;
+      await page.render({ canvasContext: cv.getContext("2d"), viewport }).promise;
+      setBg(cv.toDataURL("image/jpeg", 0.9));
+      setZoom(1); setPan({ x: 0, y: 0 });
+      setStorageMsg("Municipal cargado de fondo. Calibrá la escala sobre una cota conocida y trazá/autodetectá encima.");
+    } catch (err) {
+      setStorageMsg("No pude leer el PDF: " + (err && err.message ? err.message : err));
+    }
+  }
+
   function loadBg(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -1444,6 +1468,10 @@ export default function PanelizadorSF() {
             <label className="rounded-lg cursor-pointer px-3 py-2 font-semibold inline-flex items-center gap-1.5" style={{ background: C.blueSoft, border: `1px solid transparent`, color: C.blueDark }}>
               📐 Importar DXF
               <input type="file" accept=".dxf" className="hidden" onChange={loadDxf} />
+            </label>
+            <label className="rounded-lg cursor-pointer px-3 py-2 font-semibold inline-flex items-center gap-1.5" style={{ background: C.blueSoft, border: `1px solid transparent`, color: C.blueDark }}>
+              📑 Importar PDF (municipal)
+              <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={loadPdf} />
             </label>
             {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Detecta muros desde la imagen (planos limpios)">🔍 Autodetectar muros</Btn>}
             {walls.length > 0 && <Btn onClick={exportDXF} data-tip="Exporta la planta a DXF (Revit/AutoCAD)">📤 Exportar DXF</Btn>}
