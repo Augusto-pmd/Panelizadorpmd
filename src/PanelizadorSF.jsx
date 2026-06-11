@@ -922,6 +922,62 @@ export default function PanelizadorSF() {
     }
   }
 
+  // ---- autodetección de muros desde una imagen de plano (heurística para planos limpios)
+  function autodetectWalls() {
+    if (!bg || !bgDims) { setStorageMsg("Primero subí un plano (📄 Subir plano)."); return; }
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1000 / img.naturalWidth);
+      const cw = Math.max(1, Math.round(img.naturalWidth * scale));
+      const ch = Math.max(1, Math.round(img.naturalHeight * scale));
+      const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      const ctx = cv.getContext("2d");
+      ctx.drawImage(img, 0, 0, cw, ch);
+      const data = ctx.getImageData(0, 0, cw, ch).data;
+      const ink = (x, y) => { const i = (y * cw + x) * 4; return data[i + 3] > 40 && (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) < 125; };
+      const minH = Math.max(24, cw * 0.05), minV = Math.max(24, ch * 0.05);
+      const hsegs = [], vsegs = [];
+      for (let y = 0; y < ch; y++) { let x = 0; while (x < cw) { if (ink(x, y)) { let x2 = x; while (x2 < cw && ink(x2, y)) x2++; if (x2 - x >= minH) hsegs.push({ a: x, b: x2, p: y }); x = x2; } else x++; } }
+      for (let x = 0; x < cw; x++) { let y = 0; while (y < ch) { if (ink(x, y)) { let y2 = y; while (y2 < ch && ink(x, y2)) y2++; if (y2 - y >= minV) vsegs.push({ a: y, b: y2, p: x }); y = y2; } else y++; } }
+      // junta líneas paralelas cercanas (las dos caras de un muro) en su eje
+      const cluster = (segs) => {
+        segs.sort((s1, s2) => s1.p - s2.p || s1.a - s2.a);
+        const out = []; const used = new Array(segs.length).fill(false);
+        for (let i = 0; i < segs.length; i++) {
+          if (used[i]) continue;
+          let { a, b, p } = segs[i]; let pn = p, cnt = 1; used[i] = true;
+          for (let j = i + 1; j < segs.length && segs[j].p - p < 16; j++) {
+            if (used[j]) continue;
+            if (Math.min(b, segs[j].b) - Math.max(a, segs[j].a) > 8) { // se solapan a lo largo
+              a = Math.min(a, segs[j].a); b = Math.max(b, segs[j].b); pn += segs[j].p; cnt++; used[j] = true;
+            }
+          }
+          out.push({ a, b, p: pn / cnt });
+        }
+        return out;
+      };
+      const H = cluster(hsegs), V = cluster(vsegs);
+      const toWX = (px) => bgDims.x + (px / cw) * bgDims.w;
+      const toWY = (py) => bgDims.y + (py / ch) * bgDims.h;
+      let id = idRef.current;
+      const newWalls = [];
+      for (const s of H) newWalls.push({ id: id++, a: { x: toWX(s.a), y: toWY(s.p) }, b: { x: toWX(s.b), y: toWY(s.p) } });
+      for (const s of V) newWalls.push({ id: id++, a: { x: toWX(s.p), y: toWY(s.a) }, b: { x: toWX(s.p), y: toWY(s.b) } });
+      // snap de extremos cercanos para que los muros conecten
+      const SN = 10;
+      const pts = [];
+      for (const w of newWalls) for (const e of [w.a, w.b]) { const f = pts.find((q) => Math.abs(q.x - e.x) < SN && Math.abs(q.y - e.y) < SN); if (f) { e.x = f.x; e.y = f.y; } else pts.push(e); }
+      if (newWalls.length === 0) { setStorageMsg("No detecté muros: probá con un plano más limpio (líneas nítidas, sin amueblar) o trazá a mano."); return; }
+      if (newWalls.length > 250) { setStorageMsg(`Detecté demasiadas líneas (${newWalls.length}); el plano parece muy cargado. Trazá a mano o usá uno más limpio.`); return; }
+      idRef.current = id;
+      setWalls(newWalls); setOpenings([]); setFixtures([]);
+      setStorageMsg(`Autodetección: ${newWalls.length} muros propuestos. Revisalos y borrá los sobrantes (modo Goma) o ajustá con Editar.`);
+      setTimeout(fitView, 50);
+    };
+    img.onerror = () => setStorageMsg("No pude leer la imagen del plano.");
+    img.src = bg;
+  }
+
   function loadBg(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -1252,6 +1308,7 @@ export default function PanelizadorSF() {
               📐 Importar DXF
               <input type="file" accept=".dxf" className="hidden" onChange={loadDxf} />
             </label>
+            {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Detecta muros desde la imagen (planos limpios)">🔍 Autodetectar muros</Btn>}
             {bg && (
               <label className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg" style={{ background: C.paper }}>
                 <span style={{ color: C.gray }}>Opacidad plano</span>
