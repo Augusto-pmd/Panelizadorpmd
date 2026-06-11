@@ -68,6 +68,40 @@ export function buildAll(
   const pieces = [];
   for (const p of panels) for (const pc of p.pieces) pieces.push({ ...pc, panel: p.id });
 
+  // ---- montantes de tímpano/parapeto: el muro crece hasta el techo → suman al cómputo
+  const roofHeightEng = (wx: number, wz: number, topH: number): number => {
+    let h = topH;
+    for (const r of roofs as any[]) {
+      const rx = r.x / ppm, rz = r.y / ppm, rw = r.w / ppm, rh = r.h / ppm;
+      if (wx < rx - 0.05 || wx > rx + rw + 0.05 || wz < rz - 0.05 || wz > rz + rh + 0.05) continue;
+      const ang = Math.atan((r.slope || 0) / 100), rise = r.rise || 1;
+      if (r.parapeto) {
+        const run = r.dir === "x" ? rw : rh;
+        h = Math.max(h, topH + run * Math.tan(ang) + 0.2);
+      } else {
+        const d = r.dir === "x" ? (rise > 0 ? wx - rx : rx + rw - wx) : (rise > 0 ? wz - rz : rz + rh - wz);
+        h = Math.max(h, topH + Math.max(0, d) * Math.tan(ang));
+      }
+    }
+    return h;
+  };
+  if (roofs.length) {
+    for (const w of walls) {
+      const topH = R.panelHeight + (wVincha(w) ? R.vigaTuboH + R.vinchaHeight : 0);
+      const L = dist(w.a, w.b) / ppm;
+      if (L < 0.2) continue;
+      const ax = w.a.x / ppm, az = w.a.y / ppm;
+      const ux = (w.b.x - w.a.x) / (L * ppm), uz = (w.b.y - w.a.y) / (L * ppm);
+      for (let gx = 0; gx <= L + 1e-3; gx += R.studSpacing) {
+        const gxl = Math.min(gx, L);
+        const rH = roofHeightEng(ax + ux * gxl, az + uz * gxl, topH);
+        if (rH > topH + 0.06) pieces.push({ perfil: R.perfilMontante, largo: rH - topH, cant: 1, uso: "Montante tímpano/parapeto", panel: "T" });
+      }
+      const rA = roofHeightEng(ax, az, topH), rB = roofHeightEng(ax + ux * L, az + uz * L, topH);
+      if (rA > topH + 0.06 && Math.abs(rA - rB) < 0.02) pieces.push({ perfil: R.perfilSolera, largo: L, cant: 1, uso: "Solera de coronamiento (parapeto)", panel: "T" });
+    }
+  }
+
   // ---- viga tubo + murito: las piezas van dentro de cada panel; acá solo los ml para info
   let tuboML = 0;
   for (const w of walls) if (wVincha(w)) tuboML += dist(w.a, w.b) / ppm;
