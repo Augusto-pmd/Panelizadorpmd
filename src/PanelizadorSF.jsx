@@ -2540,7 +2540,7 @@ export default function PanelizadorSF() {
             </div>
             <div className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: C.gray }}>Herramientas</div>
             <div className="grid grid-cols-2 gap-1.5 mb-3">
-              {[["M", "Muro"], ["V", "Vano"], ["T", "Techo"], ["I", "Instalación"], ["E", "Editar"], ["G", "Goma"], ["H", "Mover"], ["C", "Calibrar"]].map(([k, label]) => (
+              {[["M", "Muro"], ["R", "Habitación"], ["V", "Vano"], ["T", "Techo"], ["I", "Instalación"], ["E", "Editar"], ["G", "Goma"], ["H", "Mover"], ["C", "Calibrar"]].map(([k, label]) => (
                 <div key={k} className="flex items-center gap-2 text-sm">
                   <kbd className="grid place-items-center rounded-md font-mono text-xs font-bold" style={{ minWidth: 24, height: 24, padding: "0 6px", background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>{k}</kbd>
                   <span style={{ color: C.ink }}>{label}</span>
