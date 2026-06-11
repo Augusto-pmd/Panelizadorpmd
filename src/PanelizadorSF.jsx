@@ -512,9 +512,10 @@ export default function PanelizadorSF() {
           const z = -info.width / 2 + (i * info.width) / Math.max(1, nCab - 1);
           addBox(inner, info.slopeLen, 0.1, 0.045, info.slopeLen / 2, 0.05, z, mSteel);
         }
-        // DETALLE DE UNIÓN: solera de apoyo en el alero (sobre el muro) y solera/viga de cumbrera
+        // DETALLE DE UNIÓN: apoyo en alero, cumbrera y fascia (cierre del alero)
         addBox(inner, 0.1, 0.07, info.width, 0.05, 0.0, 0, mSteel);                              // apoyo en alero (sobre la solera del muro)
         addBox(inner, 0.1, 0.12, info.width, info.slopeLen - 0.05, 0.06, 0, mHeader);            // viga de cumbrera (encuentro de faldas)
+        addBox(inner, 0.02, 0.16, info.width + 0.08, 0, 0.07, 0, mChapa);                        // fascia: cierra la punta de los cabios en el alero
         if (lana3d) addBox(inner, info.slopeLen, 0.085, info.width, info.slopeLen / 2, 0.05, 0, mLana);
         if (osb3d) addBox(inner, info.slopeLen, 0.012, info.width, info.slopeLen / 2, 0.106, 0, mOsb);
         addBox(inner, info.slopeLen + 0.15, 0.02, info.width + 0.1, info.slopeLen / 2, 0.125, 0, mChapa);
