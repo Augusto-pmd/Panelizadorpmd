@@ -1208,7 +1208,7 @@ export default function PanelizadorSF() {
                 {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
                 {mode === "calibrar" && (calPts.length < 2 ? `Tocá ${2 - calPts.length} punto${calPts.length === 1 ? "" : "s"} sobre una cota conocida del plano.` : "Ingresá la distancia real en metros y aplicá.")}
               </span>
-              <span style={{ opacity: 0.7 }}>Tip: tocá la cota (los metros) de cualquier muro para editar su largo ahí mismo · atajos M V T I E G H C · Ctrl+Z deshace.</span>
+              <span style={{ opacity: 0.7 }}>Tip: tocá la cota de un muro para editar su largo · acercá el zoom (+) y aparecen los montantes en planta · atajos M V T I E G H C · Ctrl+Z deshace.</span>
             </div>
           </div>
 
@@ -1264,22 +1264,38 @@ export default function PanelizadorSF() {
               );
             })}
 
-            {/* muros */}
+            {/* muros: planta arquitectónica con espesor real (100 mm) + montantes según zoom */}
             {walls.map((w2) => {
-              const L = dist(w2.a, w2.b) / ppm;
+              const Lpx = dist(w2.a, w2.b);
+              const L = Lpx / ppm;
+              if (Lpx < 1) return null;
               const mx = (w2.a.x + w2.b.x) / 2, my = (w2.a.y + w2.b.y) / 2;
+              const ux = (w2.b.x - w2.a.x) / Lpx, uy = (w2.b.y - w2.a.y) / Lpx;
+              const nxv = -uy, nyv = ux;
+              const t = Math.max(0.05 * ppm, 3 / zoom); // semiespesor (total 100 mm, mínimo visible)
+              const poly = `${w2.a.x + nxv * t},${w2.a.y + nyv * t} ${w2.b.x + nxv * t},${w2.b.y + nyv * t} ${w2.b.x - nxv * t},${w2.b.y - nyv * t} ${w2.a.x - nxv * t},${w2.a.y - nyv * t}`;
+              const showStuds = zoom >= 1.6 && 0.05 * ppm > 2 / zoom;
+              const pans = showStuds ? result.panels.filter((p) => p.wallId === w2.id) : [];
               return (
                 <g key={w2.id}>
-                  <line x1={w2.a.x} y1={w2.a.y} x2={w2.b.x} y2={w2.b.y} stroke={C.ink} strokeWidth={8 / zoom} strokeLinecap="square" />
+                  <polygon points={poly} fill="#E9EDF2" stroke={C.ink} strokeWidth={1.6 / zoom} strokeLinejoin="miter" />
+                  {/* montantes en planta (aparecen al acercar) */}
+                  {pans.map((p) => p.studs.map((s, i) => {
+                    const px = w2.a.x + ux * (p.a + s.x) * ppm, py = w2.a.y + uy * (p.a + s.x) * ppm;
+                    const dbl = s.qty > 1;
+                    return (
+                      <line key={`${p.id}-${i}`} x1={px + nxv * (t - 1 / zoom)} y1={py + nyv * (t - 1 / zoom)} x2={px - nxv * (t - 1 / zoom)} y2={py - nyv * (t - 1 / zoom)}
+                        stroke={dbl ? C.blue : C.ink} strokeWidth={(dbl ? 3 : 1.6) / zoom} opacity={dbl ? 1 : 0.75} />
+                    );
+                  }))}
                   {/* cota editable: tocar el número abre el campo para tipear el largo exacto */}
                   <g
                     style={{ cursor: "pointer" }}
                     onPointerDown={(e) => { e.stopPropagation(); setEditWall({ id: w2.id, value: L.toFixed(2) }); }}
                   >
-                    {/* halo para legibilidad sobre el plano de fondo + área de toque */}
-                    <rect x={mx - 30 / zoom} y={my - 24 / zoom} width={60 / zoom} height={18 / zoom} rx={4 / zoom}
+                    <rect x={mx - 30 / zoom} y={my - 28 / zoom} width={60 / zoom} height={18 / zoom} rx={4 / zoom}
                       fill="#FCFBF8" opacity={0.85} stroke={editWall && editWall.id === w2.id ? C.blue : "transparent"} strokeWidth={1.5 / zoom} />
-                    <text x={mx} y={my - 11 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
+                    <text x={mx} y={my - 15 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
                       {L.toFixed(2)} m
                     </text>
                   </g>
@@ -1303,18 +1319,47 @@ export default function PanelizadorSF() {
               );
             })}
 
-            {/* vanos */}
+            {/* vanos: símbolos arquitectónicos (puerta con abanico · ventana doble línea) */}
             {openings.map((o) => {
               const w2 = walls.find((x) => x.id === o.wallId);
               if (!w2) return null;
-              const L = dist(w2.a, w2.b);
-              const ux = (w2.b.x - w2.a.x) / L, uy = (w2.b.y - w2.a.y) / L;
+              const Lpx = dist(w2.a, w2.b);
+              if (Lpx < 1) return null;
+              const ux = (w2.b.x - w2.a.x) / Lpx, uy = (w2.b.y - w2.a.y) / Lpx;
+              const nxv = -uy, nyv = ux;
+              const t = Math.max(0.05 * ppm, 3 / zoom);
+              const Wpx = o.width * ppm;
               const x1 = w2.a.x + ux * (o.offset - o.width / 2) * ppm;
               const y1 = w2.a.y + uy * (o.offset - o.width / 2) * ppm;
-              const x2 = w2.a.x + ux * (o.offset + o.width / 2) * ppm;
-              const y2 = w2.a.y + uy * (o.offset + o.width / 2) * ppm;
+              const x2 = x1 + ux * Wpx, y2 = y1 + uy * Wpx;
+              const gap = `${x1 + nxv * t},${y1 + nyv * t} ${x2 + nxv * t},${y2 + nyv * t} ${x2 - nxv * t},${y2 - nyv * t} ${x1 - nxv * t},${y1 - nyv * t}`;
+              const jambs = (
+                <g>
+                  <line x1={x1 + nxv * t} y1={y1 + nyv * t} x2={x1 - nxv * t} y2={y1 - nyv * t} stroke={C.ink} strokeWidth={1.8 / zoom} />
+                  <line x1={x2 + nxv * t} y1={y2 + nyv * t} x2={x2 - nxv * t} y2={y2 - nyv * t} stroke={C.ink} strokeWidth={1.8 / zoom} />
+                </g>
+              );
+              if (o.type === "puerta") {
+                // hoja desde x1 perpendicular al muro + abanico de giro hasta x2
+                const lx = x1 + nxv * Wpx, ly = y1 + nyv * Wpx;
+                return (
+                  <g key={o.id}>
+                    <polygon points={gap} fill="#FCFBF8" />
+                    {jambs}
+                    <line x1={x1} y1={y1} x2={lx} y2={ly} stroke={C.orange} strokeWidth={2 / zoom} />
+                    <path d={`M ${lx} ${ly} A ${Wpx} ${Wpx} 0 0 1 ${x2} ${y2}`} fill="none" stroke={C.orange} strokeWidth={1.2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} />
+                  </g>
+                );
+              }
+              // ventana: doble línea de carpintería + antepecho
               return (
-                <line key={o.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.orange} strokeWidth={10 / zoom} strokeLinecap="butt" opacity={0.9} />
+                <g key={o.id}>
+                  <polygon points={gap} fill="#FCFBF8" />
+                  {jambs}
+                  <line x1={x1 + nxv * t} y1={y1 + nyv * t} x2={x2 + nxv * t} y2={y2 + nyv * t} stroke={C.ink} strokeWidth={1.2 / zoom} />
+                  <line x1={x1 - nxv * t} y1={y1 - nyv * t} x2={x2 - nxv * t} y2={y2 - nyv * t} stroke={C.ink} strokeWidth={1.2 / zoom} />
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.orange} strokeWidth={1.8 / zoom} />
+                </g>
               );
             })}
 
