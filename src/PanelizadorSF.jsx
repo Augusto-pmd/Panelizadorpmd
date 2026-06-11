@@ -1238,21 +1238,44 @@ export default function PanelizadorSF() {
 
           {/* techo automático sobre la planta */}
           {mode === "techo" && (
-            <Card className="flex flex-wrap gap-2.5 items-center p-2.5 text-xs">
-              <span className="font-bold uppercase tracking-wide text-[10px]" style={{ color: C.gray }}>⛰ Techo automático</span>
-              <select value={autoRoof.tipo} onChange={(e) => setAutoRoof({ ...autoRoof, tipo: e.target.value })} className="px-2 py-1.5 rounded-lg">
-                <option value="2aguas-h">2 aguas — cumbrera ↔</option>
-                <option value="2aguas-v">2 aguas — cumbrera ↕</option>
-                <option value="1agua">1 agua</option>
-              </select>
-              <label className="flex items-center gap-1.5" style={{ color: C.gray }}>Pend. %
-                <input type="number" inputMode="decimal" value={autoRoof.pendiente} className="w-16 px-2 py-1.5 rounded-lg font-mono" onChange={(e) => setAutoRoof({ ...autoRoof, pendiente: parseFloat(e.target.value) || 0 })} />
-              </label>
-              <label className="flex items-center gap-1.5" style={{ color: C.gray }}>Alero m
-                <input type="number" step="0.1" inputMode="decimal" value={autoRoof.alero} className="w-16 px-2 py-1.5 rounded-lg font-mono" onChange={(e) => setAutoRoof({ ...autoRoof, alero: parseFloat(e.target.value) || 0 })} />
-              </label>
-              <Btn variant="dark" onClick={generateAutoRoof}>⚡ Generar sobre la planta</Btn>
-              <span style={{ color: C.gray }}>…o dibujá un paño a mano con dos toques</span>
+            <Card className="p-3" style={{ borderColor: C.gray, borderWidth: 1.5 }}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-base">⛰</span>
+                <h3 className="text-sm font-bold" style={{ color: C.ink }}>Techo automático sobre la planta</h3>
+                <span className="text-[11px] ml-auto" style={{ color: C.gray }}>se genera con un toque · sin dibujar a mano</span>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                {/* tipo de techo (visual) */}
+                <div className="flex gap-1.5">
+                  {[
+                    { k: "1agua", label: "1 agua", icon: <path d="M3 17 L21 7 L21 17 Z" /> },
+                    { k: "2aguas-h", label: "2 aguas ↔", icon: <path d="M3 16 L12 8 L21 16 Z" /> },
+                    { k: "2aguas-v", label: "2 aguas ↕", icon: <path d="M3 8 L12 16 L21 8 L21 8 M3 8 L3 16 L21 16 L21 8" /> },
+                  ].map((t) => {
+                    const on = autoRoof.tipo === t.k;
+                    return (
+                      <button key={t.k} onClick={() => setAutoRoof({ ...autoRoof, tipo: t.k })}
+                        className="flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-lg"
+                        style={{ background: on ? C.blueSoft : "#fff", border: `1px solid ${on ? C.blue : C.line}`, color: on ? C.blueDark : C.gray }}>
+                        <svg viewBox="0 0 24 24" width="34" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">{t.icon}</svg>
+                        <span className="text-[10px] font-semibold">{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <Field label={`Pendiente · ${autoRoof.pendiente}%`}>
+                  <input type="range" min="5" max="60" step="1" value={autoRoof.pendiente} style={{ width: 130 }}
+                    onChange={(e) => setAutoRoof({ ...autoRoof, pendiente: parseFloat(e.target.value) })} />
+                </Field>
+                <Field label="Alero (m)">
+                  <NumInput step="0.1" value={autoRoof.alero} className="w-20" onChange={(e) => setAutoRoof({ ...autoRoof, alero: parseFloat(e.target.value) || 0 })} />
+                </Field>
+                <Btn variant="dark" size="lg" onClick={generateAutoRoof}>⚡ Generar techo</Btn>
+                {roofs.length > 0 && <Btn variant="danger" onClick={() => setRoofs([])}>Borrar techos</Btn>}
+              </div>
+              <div className="text-[11px] mt-2" style={{ color: C.gray }}>
+                También podés dibujar un paño a mano: tocá dos esquinas opuestas en el plano. Editá pendientes abajo.
+              </div>
             </Card>
           )}
 
@@ -1292,7 +1315,7 @@ export default function PanelizadorSF() {
                 {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
                 {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
                 {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
-                {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Tocá la primera esquina del paño de techo (en planta). La pendiente se edita abajo.")}
+                {mode === "techo" && (pendingRoof ? "Tocá la esquina opuesta del paño de techo." : "Elegí el tipo de techo arriba y tocá ⚡ Generar: sale solo sobre la planta. O dibujá un paño a mano con dos toques.")}
                 {mode === "instal" && "Tocá sobre un muro para marcar un punto de instalación (toma por defecto). Cambiá tipo y altura en la lista de abajo."}
                 {mode === "editar" && "Tocá un muro para elegir su tipología (perfil, modulación, placa). Agarrá y arrastrá: vanos e instalaciones se deslizan por su muro; agarrá una esquina y movés los muros que llegan a ella."}
                 {mode === "goma" && "Tocá un vano, muro o paño de techo para borrarlo. Primero borra vanos, después muros (con sus vanos) y techos."}
@@ -1329,26 +1352,43 @@ export default function PanelizadorSF() {
             {bg && <image href={bg} x={0} y={0} width={VB_W} opacity={bgOpacity} />}
             {!bg && gridLines}
 
-            {/* techos */}
+            {/* techos: paño con cumbrera + flechas de pendiente (agua) */}
             {roofs.map((r, idx) => {
               const info = result.roofInfo.find((x) => x.id === r.id);
               const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+              const mg = 16 / zoom, ah = 7 / zoom; // margen y tamaño de flecha
+              const arrows = [];
+              if (r.dir === "x") {
+                for (const fy of [cy - r.h / 4, cy, cy + r.h / 4]) {
+                  arrows.push({ x1: r.x + mg, y1: fy, x2: r.x + r.w - mg, y2: fy, hx: -ah, hy: ah });
+                }
+              } else {
+                for (const fx of [cx - r.w / 4, cx, cx + r.w / 4]) {
+                  arrows.push({ x1: fx, y1: r.y + mg, x2: fx, y2: r.y + r.h - mg, hx: ah, hy: -ah });
+                }
+              }
               return (
                 <g key={r.id}>
-                  <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="rgba(46,111,216,0.06)" stroke={C.gray} strokeWidth={2 / zoom} strokeDasharray={`${10 / zoom} ${6 / zoom}`} />
-                  {/* flecha de pendiente */}
-                  {r.dir === "x" ? (
-                    <line x1={r.x + 14 / zoom} y1={cy} x2={r.x + r.w - 14 / zoom} y2={cy} stroke={C.gray} strokeWidth={2 / zoom} markerEnd="" />
-                  ) : (
-                    <line x1={cx} y1={r.y + 14 / zoom} x2={cx} y2={r.y + r.h - 14 / zoom} stroke={C.gray} strokeWidth={2 / zoom} />
-                  )}
-                  <text x={cx} y={r.y + 18 / zoom} fontSize={12 / zoom} textAnchor="middle" fill={C.gray} fontFamily="ui-monospace, monospace" fontWeight="bold">
-                    {info ? `${info.tag} · ${r.slope}% · pend ${info.slopeLen.toFixed(2)} m` : ""}
-                  </text>
-                  {info && info.warn && (
-                    <text x={cx} y={r.y + 34 / zoom} fontSize={11 / zoom} textAnchor="middle" fill={C.red} fontFamily="ui-monospace, monospace">
-                      ⚠ pendiente &gt; 6 m: dividir paño
+                  <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="rgba(46,111,216,0.05)" stroke={C.blue} strokeWidth={1.6 / zoom} strokeDasharray={`${9 / zoom} ${5 / zoom}`} opacity={0.7} />
+                  {/* cumbrera (lado alto) */}
+                  {r.dir === "x"
+                    ? <line x1={r.x} y1={r.y} x2={r.x} y2={r.y + r.h} stroke={C.ink} strokeWidth={3 / zoom} />
+                    : <line x1={r.x} y1={r.y} x2={r.x + r.w} y2={r.y} stroke={C.ink} strokeWidth={3 / zoom} />}
+                  {/* flechas de agua */}
+                  {arrows.map((a, i) => (
+                    <g key={i} stroke={C.blue} strokeWidth={1.6 / zoom} fill="none" opacity={0.8}>
+                      <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} />
+                      <path d={`M ${a.x2} ${a.y2} l ${a.hx} ${a.hy} M ${a.x2} ${a.y2} l ${a.hx} ${-a.hy}`} />
+                    </g>
+                  ))}
+                  <g>
+                    <rect x={cx - 70 / zoom} y={cy - 10 / zoom} width={140 / zoom} height={16 / zoom} rx={4 / zoom} fill="#FCFBF8" opacity={0.9} />
+                    <text x={cx} y={cy + 2 / zoom} fontSize={11 / zoom} textAnchor="middle" fill={C.ink} fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
+                      {info ? `${info.tag} · ${r.slope}% · pend ${info.slopeLen.toFixed(2)} m` : `${r.slope}%`}
                     </text>
+                  </g>
+                  {info && info.warn && (
+                    <text x={cx} y={cy + 20 / zoom} fontSize={10 / zoom} textAnchor="middle" fill={C.red} fontFamily="'JetBrains Mono', monospace">⚠ pendiente &gt; 6 m: dividir paño</text>
                   )}
                 </g>
               );
@@ -1664,12 +1704,12 @@ export default function PanelizadorSF() {
                   const info = result.roofInfo.find((x) => x.id === r.id);
                   return (
                     <Card key={r.id} className="p-2.5 flex flex-wrap items-end gap-3 text-xs">
-                      <Chip color={C.gray}>T{idx + 1}</Chip>
-                      <Field label="Pendiente (%)">
-                        <NumInput step="1" value={r.slope} className="w-20"
-                          onChange={(e) => updateRoof(r.id, { slope: parseFloat(e.target.value) || 0 })} />
+                      <Chip color={C.gray} soft={false}>T{idx + 1}</Chip>
+                      <Field label={`Pendiente · ${r.slope}%`}>
+                        <input type="range" min="5" max="60" step="1" value={r.slope} style={{ width: 120 }}
+                          onChange={(e) => updateRoof(r.id, { slope: parseFloat(e.target.value) })} />
                       </Field>
-                      <Field label="Sentido pendiente">
+                      <Field label="Sentido del agua">
                         <select value={r.dir} className="px-2 py-1.5 rounded-lg" onChange={(e) => updateRoof(r.id, { dir: e.target.value })}>
                           <option value="x">↔ horizontal</option>
                           <option value="y">↕ vertical</option>
