@@ -31,6 +31,7 @@ export default function PanelizadorSF() {
   const [perfilSolera, setPerfilSolera] = useState("PGU 100×0.9");
   const [arriostrar, setArriostrar] = useState(false);
   const [selWall, setSelWall] = useState(null); // muro seleccionado para editar su tipología
+  const [selVano, setSelVano] = useState(null); // vano seleccionado para editar
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
@@ -113,7 +114,7 @@ export default function PanelizadorSF() {
     if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
     if (typing) return;
-    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); setShowHelp(false); return; }
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); return; }
     if (tab !== "plano") return;
     const toolKeys = { m: "muro", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
@@ -1037,6 +1038,21 @@ export default function PanelizadorSF() {
   }
 
   const totalMuros = walls.reduce((s, w) => s + dist(w.a, w.b) / ppm, 0);
+  // centroide del edificio → para detectar qué lado del muro va al exterior
+  const buildingCentroid = (() => {
+    if (!walls.length) return null;
+    let sx = 0, sy = 0, n = 0;
+    for (const w of walls) { sx += w.a.x + w.b.x; sy += w.a.y + w.b.y; n += 2; }
+    return { x: sx / n, y: sy / n };
+  })();
+  // signo de la normal (-uy,ux) que apunta al exterior (lado opuesto al centroide)
+  const exteriorSign = (w) => {
+    if (!buildingCentroid) return 1;
+    const mx = (w.a.x + w.b.x) / 2, my = (w.a.y + w.b.y) / 2;
+    const L = dist(w.a, w.b) || 1;
+    const nx = -(w.b.y - w.a.y) / L, ny = (w.b.x - w.a.x) / L;
+    return (mx - buildingCentroid.x) * nx + (my - buildingCentroid.y) * ny >= 0 ? 1 : -1;
+  };
   const totalChapas = result.chapas.reduce((s, c) => s + c.cant, 0);
 
   const w = VB_W / zoom, h = VB_H / zoom;
@@ -1306,6 +1322,41 @@ export default function PanelizadorSF() {
             );
           })()}
 
+          {/* ===== Propiedades del vano seleccionado ===== */}
+          {selVano != null && (() => {
+            const o = openings.find((x) => x.id === selVano);
+            if (!o) return null;
+            return (
+              <Card className="p-3 pop-in" style={{ borderColor: C.orange, borderWidth: 1.5 }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Chip color={C.orange} soft={false} className="text-[10px] px-2 py-0.5">{o.type === "puerta" ? "Puerta" : "Ventana"}</Chip>
+                  <span className="text-sm font-bold" style={{ color: C.ink }}>Editar vano</span>
+                  <button onClick={() => setSelVano(null)} className="ml-auto grid place-items-center rounded-lg" style={{ width: 28, height: 28, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
+                </div>
+                <div className="flex flex-wrap items-end gap-3 text-xs">
+                  <Field label="Tipo">
+                    <select value={o.type} className="px-2 py-1.5 rounded-lg"
+                      onChange={(e) => updateOpening(o.id, { type: e.target.value, sill: e.target.value === "puerta" ? 0 : o.sill || 1.0, height: e.target.value === "puerta" ? 2.05 : o.height })}>
+                      <option value="ventana">Ventana</option>
+                      <option value="puerta">Puerta</option>
+                    </select>
+                  </Field>
+                  {[["Ancho", "width", 0.1], ["Alto", "height", 0.1], ...(o.type === "ventana" ? [["Antepecho", "sill", 0.05]] : []), ["Desde inicio", "offset", 0.05]].map(([lbl, key, step]) => (
+                    <Field key={key} label={`${lbl} (m)`}>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => updateOpening(o.id, { [key]: Math.max(0, Math.round((o[key] - step) * 100) / 100) })} className="grid place-items-center rounded-md font-bold" style={{ width: 26, height: 30, border: `1px solid ${C.line}`, color: C.gray }}>−</button>
+                        <NumInput step={step} value={o[key]} className="w-16" onChange={(e) => updateOpening(o.id, { [key]: parseFloat(e.target.value) || 0 })} />
+                        <button onClick={() => updateOpening(o.id, { [key]: Math.round((o[key] + step) * 100) / 100 })} className="grid place-items-center rounded-md font-bold" style={{ width: 26, height: 30, border: `1px solid ${C.line}`, color: C.gray }}>+</button>
+                      </div>
+                    </Field>
+                  ))}
+                  <Btn variant="danger" size="sm" onClick={() => { setOpenings((os) => os.filter((x) => x.id !== o.id)); setSelVano(null); }}>🗑 Borrar vano</Btn>
+                </div>
+                <div className="text-[11px] mt-2" style={{ color: C.gray }}>En modo Editar también podés arrastrar el vano por el muro. Tocá otro vano para editarlo.</div>
+              </Card>
+            );
+          })()}
+
           {/* largo exacto del tramo en curso */}
           {mode === "muro" && pending && (
             <Card className="flex flex-wrap gap-2 items-center p-2.5 pop-in" style={{ borderColor: C.blue, borderWidth: 1.5 }}>
@@ -1488,11 +1539,16 @@ export default function PanelizadorSF() {
               const poly = `${w2.a.x + nxv * t},${w2.a.y + nyv * t} ${w2.b.x + nxv * t},${w2.b.y + nyv * t} ${w2.b.x - nxv * t},${w2.b.y - nyv * t} ${w2.a.x - nxv * t},${w2.a.y - nyv * t}`;
               const showStuds = zoom >= 1.6 && 0.05 * ppm > 2 / zoom;
               const pans = showStuds ? result.panels.filter((p) => p.wallId === w2.id) : [];
+              const es = exteriorSign(w2); // +1/-1: lado exterior
+              const eo = t + 2 / zoom;     // offset de la cara exterior
               return (
                 <g key={w2.id}>
+                  {/* cara exterior detectada (donde van OSB/membrana) */}
+                  <line x1={w2.a.x + nxv * eo * es} y1={w2.a.y + nyv * eo * es} x2={w2.b.x + nxv * eo * es} y2={w2.b.y + nyv * eo * es}
+                    stroke={C.osb} strokeWidth={2 / zoom} opacity={0.7} />
                   <polygon points={poly} fill={selWall === w2.id ? C.blueSoft : "#E9EDF2"} stroke={selWall === w2.id ? C.blue : C.ink} strokeWidth={(selWall === w2.id ? 2.4 : 1.6) / zoom} strokeLinejoin="miter"
                     style={{ cursor: mode === "editar" ? "pointer" : undefined }}
-                    onPointerDown={mode === "editar" ? (e) => { e.stopPropagation(); setSelWall(w2.id); } : undefined} />
+                    onPointerDown={mode === "editar" ? (e) => { e.stopPropagation(); setSelWall(w2.id); setSelVano(null); } : undefined} />
                   {/* montantes en planta (aparecen al acercar) */}
                   {pans.map((p) => p.studs.map((s, i) => {
                     const px = w2.a.x + ux * (p.a + s.x) * ppm, py = w2.a.y + uy * (p.a + s.x) * ppm;
@@ -1547,6 +1603,8 @@ export default function PanelizadorSF() {
               const y1 = w2.a.y + uy * (o.offset - o.width / 2) * ppm;
               const x2 = x1 + ux * Wpx, y2 = y1 + uy * Wpx;
               const gap = `${x1 + nxv * t},${y1 + nyv * t} ${x2 + nxv * t},${y2 + nyv * t} ${x2 - nxv * t},${y2 - nyv * t} ${x1 - nxv * t},${y1 - nyv * t}`;
+              const sel = mode === "editar" ? { style: { cursor: "pointer" }, onPointerDown: (e) => { e.stopPropagation(); setSelVano(o.id); setSelWall(null); } } : {};
+              const ring = selVano === o.id ? <polygon points={gap} fill="rgba(47,111,224,0.12)" stroke={C.blue} strokeWidth={2.5 / zoom} /> : null;
               const jambs = (
                 <g>
                   <line x1={x1 + nxv * t} y1={y1 + nyv * t} x2={x1 - nxv * t} y2={y1 - nyv * t} stroke={C.ink} strokeWidth={1.8 / zoom} />
@@ -1557,8 +1615,9 @@ export default function PanelizadorSF() {
                 // hoja desde x1 perpendicular al muro + abanico de giro hasta x2
                 const lx = x1 + nxv * Wpx, ly = y1 + nyv * Wpx;
                 return (
-                  <g key={o.id}>
+                  <g key={o.id} {...sel}>
                     <polygon points={gap} fill="#FCFBF8" />
+                    {ring}
                     {jambs}
                     <line x1={x1} y1={y1} x2={lx} y2={ly} stroke={C.orange} strokeWidth={2 / zoom} />
                     <path d={`M ${lx} ${ly} A ${Wpx} ${Wpx} 0 0 1 ${x2} ${y2}`} fill="none" stroke={C.orange} strokeWidth={1.2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} />
@@ -1567,8 +1626,9 @@ export default function PanelizadorSF() {
               }
               // ventana: doble línea de carpintería + antepecho
               return (
-                <g key={o.id}>
+                <g key={o.id} {...sel}>
                   <polygon points={gap} fill="#FCFBF8" />
+                  {ring}
                   {jambs}
                   <line x1={x1 + nxv * t} y1={y1 + nyv * t} x2={x2 + nxv * t} y2={y2 + nyv * t} stroke={C.ink} strokeWidth={1.2 / zoom} />
                   <line x1={x1 - nxv * t} y1={y1 - nyv * t} x2={x2 - nxv * t} y2={y2 - nyv * t} stroke={C.ink} strokeWidth={1.2 / zoom} />
