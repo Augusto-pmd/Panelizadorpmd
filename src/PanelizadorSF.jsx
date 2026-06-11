@@ -1190,6 +1190,41 @@ export default function PanelizadorSF() {
                   <span className="text-sm font-bold" style={{ color: C.ink }}>{Lm} m — tipología</span>
                   <button onClick={() => setSelWall(null)} className="ml-auto grid place-items-center rounded-lg" style={{ width: 28, height: 28, color: C.gray, border: `1px solid ${C.line}` }}>✕</button>
                 </div>
+                {/* render de sección de la tipología (placa · montante · aislación · placa) */}
+                {(() => {
+                  const placa = cfg.placa || "OSB";
+                  const mont = cfg.perfilMontante || perfilMontante;
+                  const extDoble = placa === "OSB doble" || placa === "Roca + OSB";
+                  const intRoca = placa === "Roca de yeso" || placa === "Roca + OSB";
+                  const capas = [];
+                  let x = 0;
+                  const add = (w, fill, txt, stroke = C.ink) => { capas.push({ x, w, fill, txt, stroke }); x += w; };
+                  add(10, "#F0DCAE", "OSB", C.osb);
+                  if (extDoble) add(10, "#E7CE96", "OSB", C.osb);
+                  add(96, "#EEF2F7", "Montante " + mont.replace("PGC ", "") + " + lana", C.gray);
+                  add(intRoca ? 13 : 10, intRoca ? "#F3F4F6" : "#F0DCAE", intRoca ? "Roca" : "OSB", intRoca ? C.gray : C.osb);
+                  const total = x;
+                  return (
+                    <div className="rounded-lg overflow-hidden mb-2.5" style={{ border: `1px solid ${C.line}`, background: "#fff" }}>
+                      <svg viewBox={`0 0 ${total} 78`} style={{ width: "100%", maxWidth: 360, display: "block" }}>
+                        <text x={total / 2} y={11} fontSize={7} textAnchor="middle" fill={C.gray} fontFamily="'JetBrains Mono', monospace">EXTERIOR ← → INTERIOR</text>
+                        {capas.map((c, i) => (
+                          <g key={i}>
+                            <rect x={c.x} y={16} width={c.w} height={48} fill={c.fill} stroke={c.stroke} strokeWidth={0.8} />
+                            {c.txt.startsWith("Montante") && (
+                              <>
+                                <rect x={c.x + 6} y={20} width={4} height={40} fill="none" stroke={C.ink} strokeWidth={1.2} />
+                                <rect x={c.x + c.w - 10} y={20} width={4} height={40} fill="none" stroke={C.ink} strokeWidth={1.2} />
+                                {[0.33, 0.66].map((f, k) => <line key={k} x1={c.x + c.w * f} y1={22} x2={c.x + c.w * f} y2={58} stroke={C.lana} strokeWidth={1} strokeDasharray="2 2" />)}
+                              </>
+                            )}
+                            <text x={c.x + c.w / 2} y={74} fontSize={6.5} textAnchor="middle" fill={c.stroke} fontFamily="'JetBrains Mono', monospace">{c.txt}</text>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                  );
+                })()}
                 <div className="flex flex-wrap items-end gap-3 text-xs">
                   <Field label="Montante">
                     <select value={cfg.perfilMontante || ""} onChange={(e) => updateWallCfg(w2.id, { perfilMontante: e.target.value || undefined })} className="px-2 py-1.5 rounded-lg">
