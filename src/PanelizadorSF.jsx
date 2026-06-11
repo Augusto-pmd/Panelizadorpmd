@@ -1128,7 +1128,27 @@ export default function PanelizadorSF() {
       if (!key) return;
       try { localStorage.setItem("pmd_anthropic_key", key); } catch (_) {}
     }
-    const m = bg.match(/^data:(image\/[\w+]+);base64,(.+)$/);
+    // recortar a lo VISIBLE (la planta a la que hiciste zoom) para que la IA no lea toda la lámina
+    const recorte = await new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          if (!bgDims) { resolve(bg); return; }
+          const cw = img.naturalWidth, ch = img.naturalHeight;
+          const vw = VB_W / zoom, vh = VB_H / zoom;
+          const vx0 = (VB_W - vw) / 2 + pan.x, vy0 = (VB_H - vh) / 2 + pan.y;
+          const sx = Math.max(0, ((vx0 - bgDims.x) / bgDims.w) * cw), sxe = Math.min(cw, ((vx0 + vw - bgDims.x) / bgDims.w) * cw);
+          const sy = Math.max(0, ((vy0 - bgDims.y) / bgDims.h) * ch), sye = Math.min(ch, ((vy0 + vh - bgDims.y) / bgDims.h) * ch);
+          const sw = Math.max(1, sxe - sx), sh = Math.max(1, sye - sy);
+          const cv = document.createElement("canvas"); cv.width = sw; cv.height = sh;
+          cv.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          resolve(cv.toDataURL("image/jpeg", 0.92));
+        };
+        img.onerror = () => resolve(bg);
+        img.src = bg;
+      } catch (_) { resolve(bg); }
+    });
+    const m = recorte.match(/^data:(image\/[\w+]+);base64,(.+)$/);
     if (!m) { setStorageMsg("La imagen del plano no es válida."); return; }
     setIaBusy(true);
     setStorageMsg("🤖 Interpretando el municipal con IA… (puede tardar)");
