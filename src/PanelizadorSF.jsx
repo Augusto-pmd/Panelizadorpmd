@@ -10,7 +10,7 @@ import DetallesView from "./DetallesView";
 // ---------------- componente principal ----------------
 export default function PanelizadorSF() {
   const [tab, setTab] = useState("plano");
-  const [mode, setMode] = useState("muro"); // muro | vano | techo | goma | calibrar
+  const [mode, setMode] = useState("rect"); // rect (Habitación) por defecto: el camino más fácil para principiantes
   const [walls, setWalls] = useState([]);
   const [openings, setOpenings] = useState([]);
   const [roofs, setRoofs] = useState([]);
@@ -666,6 +666,19 @@ export default function PanelizadorSF() {
     }
   }
 
+  // crea los 4 muros de una habitación entre dos esquinas opuestas
+  function makeRoom(a, b) {
+    if (!(Math.abs(b.x - a.x) > 8 && Math.abs(b.y - a.y) > 8)) return;
+    const c1 = { x: a.x, y: a.y }, c2 = { x: b.x, y: a.y }, c3 = { x: b.x, y: b.y }, c4 = { x: a.x, y: b.y };
+    setWalls((ws) => [
+      ...ws,
+      { id: idRef.current++, a: c1, b: c2 },
+      { id: idRef.current++, a: c2, b: c3 },
+      { id: idRef.current++, a: c3, b: c4 },
+      { id: idRef.current++, a: c4, b: c1 },
+    ]);
+  }
+
   function handleTap(raw) {
     if (mode === "calibrar") {
       setCalPts((p) => [...p, raw].slice(-2));
@@ -690,18 +703,7 @@ export default function PanelizadorSF() {
       if (!pendingRect) {
         setPendingRect(snapPoint(raw, null));
       } else {
-        const b = snapPoint(raw, pendingRect);
-        const a = pendingRect;
-        if (Math.abs(b.x - a.x) > 8 && Math.abs(b.y - a.y) > 8) {
-          const c1 = { x: a.x, y: a.y }, c2 = { x: b.x, y: a.y }, c3 = { x: b.x, y: b.y }, c4 = { x: a.x, y: b.y };
-          setWalls((ws) => [
-            ...ws,
-            { id: idRef.current++, a: c1, b: c2 },
-            { id: idRef.current++, a: c2, b: c3 },
-            { id: idRef.current++, a: c3, b: c4 },
-            { id: idRef.current++, a: c4, b: c1 },
-          ]);
-        }
+        makeRoom(pendingRect, snapPoint(raw, pendingRect));
         setPendingRect(null);
         setHover(null);
       }
@@ -841,6 +843,10 @@ export default function PanelizadorSF() {
       const raw = ptFromEvent(e);
       dragRef.current = raw ? pickElement(raw) : null;
     }
+    if (mode === "rect" && g.pts.size === 1) {
+      const raw = ptFromEvent(e);
+      g.rectDown = raw ? snapPoint(raw, null) : null; // posible inicio de arrastre
+    }
     try { svgRef.current.setPointerCapture(e.pointerId); } catch (_) {}
   }
 
@@ -870,6 +876,10 @@ export default function PanelizadorSF() {
           if (raw) applyDrag(raw);
         }
       } else {
+        // arrastrar para dibujar habitación: al mover lo suficiente, fijar la 1ª esquina
+        if (mode === "rect" && !pendingRect && g.rectDown && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) >= 12) {
+          setPendingRect(g.rectDown);
+        }
         handleMoveHover(e);
       }
     }
@@ -881,12 +891,17 @@ export default function PanelizadorSF() {
     g.pts.delete(e.pointerId);
     if (g.pts.size === 0) {
       const moved = p ? Math.hypot(e.clientX - p.sx, e.clientY - p.sy) : 99;
-      if (!g.multi && moved < 10 && mode !== "mover" && mode !== "editar") {
+      // arrastrar para dibujar habitación: soltar tras arrastrar completa el ambiente
+      if (mode === "rect" && pendingRect && !g.multi && moved >= 12) {
+        const raw = ptFromEvent(e);
+        if (raw) makeRoom(pendingRect, snapPoint(raw, pendingRect));
+        setPendingRect(null); setHover(null);
+      } else if (!g.multi && moved < 10 && mode !== "mover" && mode !== "editar") {
         const raw = ptFromEvent(e);
         if (raw) handleTap(raw);
       }
       g.multi = false; g.lastDist = 0; g.lastMid = null;
-      dragRef.current = null;
+      dragRef.current = null; g.rectDown = null;
     }
   }
 
