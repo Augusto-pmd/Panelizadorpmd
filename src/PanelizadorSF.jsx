@@ -33,6 +33,7 @@ export default function PanelizadorSF() {
   const [perfilMontante, setPerfilMontante] = useState("PGC 100×1.2");
   const [perfilSolera, setPerfilSolera] = useState("PGU 100×0.9");
   const [arriostrar, setArriostrar] = useState(false);
+  const [blocking, setBlocking] = useState(true); // rigidizadores horizontales entre montantes
   const [panelH, setPanelH] = useState(3.0);   // altura del panel (montante)
   const [muritoH, setMuritoH] = useState(0.5);  // altura del murito de carga
   const [selWall, setSelWall] = useState(null); // muro seleccionado para editar su tipología
@@ -65,8 +66,8 @@ export default function PanelizadorSF() {
     const base = RULES;
     const kgM = (CATALOGO_PGC.find((p) => p.nombre === perfilMontante) || {}).kg ?? base.kgPGC;
     const kgS = (CATALOGO_PGU.find((p) => p.nombre === perfilSolera) || {}).kg ?? base.kgPGU;
-    return { ...base, studSpacing: modul, perfilMontante, perfilSolera, kgPGC: kgM, kgPGU: kgS, arriostrar, panelHeight: panelH, vinchaHeight: muritoH };
-  }, [modul, perfilMontante, perfilSolera, arriostrar, panelH, muritoH]);
+    return { ...base, studSpacing: modul, perfilMontante, perfilSolera, kgPGC: kgM, kgPGU: kgS, arriostrar, blocking, panelHeight: panelH, vinchaHeight: muritoH };
+  }, [modul, perfilMontante, perfilSolera, arriostrar, blocking, panelH, muritoH]);
 
   const result = useMemo(
     () => buildAll(walls, openings, roofs, fixtures, ppm, vincha, effRules),
@@ -1466,6 +1467,10 @@ export default function PanelizadorSF() {
             <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer font-medium" style={{ background: arriostrar ? C.blueSoft : C.paper, color: arriostrar ? C.blueDark : C.gray, border: `1px solid ${arriostrar ? "transparent" : C.line}` }}>
               <input type="checkbox" checked={arriostrar} onChange={(e) => setArriostrar(e.target.checked)} />
               Arriostrar en X (fleje)
+            </label>
+            <label className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer font-medium" style={{ background: blocking ? C.blueSoft : C.paper, color: blocking ? C.blueDark : C.gray, border: `1px solid ${blocking ? "transparent" : C.line}` }}>
+              <input type="checkbox" checked={blocking} onChange={(e) => setBlocking(e.target.checked)} />
+              Blocking (rigidizadores)
             </label>
             <span className="self-center" style={{ color: C.gray }}>PMD: PGC 100×1,2 · PGU 100×0,9 · 400 mm · rigidiza con OSB</span>
           </Card>

@@ -42,6 +42,7 @@ export const RULES = {
   perfilSolera: "PGU 100×0.9",
   // arriostramiento en cruz de San Andrés (P4): off por defecto (PMD rigidiza con OSB)
   arriostrar: false,
+  blocking: true,         // rigidizadores horizontales entre montantes (1 fila por panel)
   flejeAncho: 0.032,      // ancho del fleje (m) — mín. norma 32 mm
   // tornillería y anclajes (P3)
   tornilloOsbBorde: 0.15, // paso de tornillos en bordes de OSB (m)

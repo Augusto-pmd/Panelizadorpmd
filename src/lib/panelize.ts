@@ -137,6 +137,12 @@ export function panelizeWall(
       pieces.push({ perfil: PGC, largo: s.len, cant: s.qty, uso });
     }
 
+    // blocking / rigidizadores horizontales: 1 fila a media altura, un tramo por vano entre montantes
+    if (R.blocking) {
+      const gaps = Math.max(0, Math.round(len / R.studSpacing));
+      if (gaps > 0) pieces.push({ perfil: PGU, largo: R.studSpacing, cant: gaps, uso: "Blocking (rigidizador)" });
+    }
+
     pieces.push({ perfil: PGU, largo: len, cant: 1, uso: "Solera superior" });
     const doorSpans = opDraw.filter((o) => o.sill < 0.05).map((o) => [o.lx1, o.lx2]).sort((p, q) => p[0] - q[0]);
     let cursor = 0;
