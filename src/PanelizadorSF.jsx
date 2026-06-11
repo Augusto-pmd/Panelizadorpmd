@@ -1040,14 +1040,21 @@ export default function PanelizadorSF() {
       const data = ctx.getImageData(0, 0, cw, ch).data;
       // umbral más oscuro: los muros son líneas/bandas negras, no texto gris ni amueblado
       const ink = (x, y) => { const i = (y * cw + x) * 4; return data[i + 3] > 60 && (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) < 105; };
-      // sólo líneas LARGAS (≥15% del lado): filtra texto, cotas, amueblado, hatch
-      const minH = Math.max(50, cw * 0.15), minV = Math.max(50, ch * 0.15);
       // un muro tiene espesor: el píxel debe ser parte de una banda (≥2 px) → descarta líneas finas (cotas/texto)
       const inkH = (x, y) => ink(x, y) && (ink(x, y - 1) || ink(x, y + 1));
       const inkV = (x, y) => ink(x, y) && (ink(x - 1, y) || ink(x + 1, y));
+      // SOLO la región visible (lo que estás viendo): así en un municipal detecta SOLO la planta a la que hiciste zoom
+      const vw = VB_W / zoom, vh = VB_H / zoom;
+      const vx0 = (VB_W - vw) / 2 + pan.x, vy0 = (VB_H - vh) / 2 + pan.y;
+      const X0 = Math.max(1, Math.floor(((vx0 - bgDims.x) / bgDims.w) * cw));
+      const X1 = Math.min(cw - 1, Math.ceil(((vx0 + vw - bgDims.x) / bgDims.w) * cw));
+      const Y0 = Math.max(1, Math.floor(((vy0 - bgDims.y) / bgDims.h) * ch));
+      const Y1 = Math.min(ch - 1, Math.ceil(((vy0 + vh - bgDims.y) / bgDims.h) * ch));
+      // sólo líneas LARGAS (≥15% del ancho/alto de lo VISIBLE): filtra texto, cotas, amueblado
+      const minH = Math.max(40, (X1 - X0) * 0.15), minV = Math.max(40, (Y1 - Y0) * 0.15);
       const hsegs = [], vsegs = [];
-      for (let y = 1; y < ch - 1; y++) { let x = 0; while (x < cw) { if (inkH(x, y)) { let x2 = x; while (x2 < cw && inkH(x2, y)) x2++; if (x2 - x >= minH) hsegs.push({ a: x, b: x2, p: y }); x = x2; } else x++; } }
-      for (let x = 1; x < cw - 1; x++) { let y = 0; while (y < ch) { if (inkV(x, y)) { let y2 = y; while (y2 < ch && inkV(x, y2)) y2++; if (y2 - y >= minV) vsegs.push({ a: y, b: y2, p: x }); y = y2; } else y++; } }
+      for (let y = Y0; y < Y1; y++) { let x = X0; while (x < X1) { if (inkH(x, y)) { let x2 = x; while (x2 < X1 && inkH(x2, y)) x2++; if (x2 - x >= minH) hsegs.push({ a: x, b: x2, p: y }); x = x2; } else x++; } }
+      for (let x = X0; x < X1; x++) { let y = Y0; while (y < Y1) { if (inkV(x, y)) { let y2 = y; while (y2 < Y1 && inkV(x, y2)) y2++; if (y2 - y >= minV) vsegs.push({ a: y, b: y2, p: x }); y = y2; } else y++; } }
       // junta líneas paralelas cercanas (las dos caras de un muro) en su eje
       const cluster = (segs) => {
         segs.sort((s1, s2) => s1.p - s2.p || s1.a - s2.a);
@@ -1544,7 +1551,7 @@ Reglas: coordenadas en METROS con 2 decimales, origen (0,0) arriba-izquierda de 
               📑 Importar PDF (municipal)
               <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={loadPdf} />
             </label>
-            {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Detecta muros desde la imagen (planos limpios)">🔍 Autodetectar muros</Btn>}
+            {bg && <Btn variant="primary" onClick={autodetectWalls} data-tip="Hacé zoom a la PLANTA y detecta solo lo visible">🔍 Autodetectar (zona visible)</Btn>}
             {bg && <Btn variant="success" onClick={interpretarMunicipal} disabled={iaBusy} data-tip="Interpreta el municipal con IA → muros, vanos, ambientes">{iaBusy ? "🤖 Interpretando…" : "🤖 Interpretar (IA)"}</Btn>}
             {walls.length > 0 && <Btn onClick={exportDXF} data-tip="Exporta la planta a DXF (Revit/AutoCAD)">📤 Exportar DXF</Btn>}
             {bg && (
