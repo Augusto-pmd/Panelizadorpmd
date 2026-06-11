@@ -2423,6 +2423,27 @@ export default function PanelizadorSF() {
                         </g>
                       );
                     })}
+                    {/* COTAS para el instalador: ancho + montantes (abajo), altura (izq) y vanos */}
+                    <g fontFamily="ui-monospace, monospace">
+                      <line x1={0} y1={ph + 13} x2={pw} y2={ph + 13} stroke={C.gray} strokeWidth={1} />
+                      <line x1={0} y1={ph + 9} x2={0} y2={ph + 17} stroke={C.gray} strokeWidth={1} />
+                      <line x1={pw} y1={ph + 9} x2={pw} y2={ph + 17} stroke={C.gray} strokeWidth={1} />
+                      {p.studs.map((s, i) => <line key={`dm${i}`} x1={s.x * sc} y1={ph + 10} x2={s.x * sc} y2={ph + 16} stroke={C.gray} strokeWidth={0.8} />)}
+                      <text x={pw / 2} y={ph + 31} textAnchor="middle" fontSize={11} fontWeight="bold" fill={C.ink}>{p.len.toFixed(2)} m · montantes @{(effRules.studSpacing * 100).toFixed(0)}</text>
+                      <text x={-2} y={ph / 2} fontSize={10} fill={C.ink} fontWeight="bold" transform={`rotate(-90 -2 ${ph / 2})`} textAnchor="middle">{effRules.panelHeight.toFixed(2)} m</text>
+                      {p.vincha && <text x={-2} y={-extra / 2} fontSize={8} fill={C.blue} transform={`rotate(-90 -2 ${-extra / 2})`} textAnchor="middle">VT+murito {(effRules.vigaTuboH + effRules.vinchaHeight).toFixed(2)}</text>}
+                      {p.ops.map((o, i) => {
+                        const x1 = o.lx1 * sc, x2 = o.lx2 * sc, oy = ph - (o.sill + o.height) * sc;
+                        return (
+                          <g key={`co${i}`}>
+                            <line x1={x1} y1={oy - 7} x2={x2} y2={oy - 7} stroke={C.orange} strokeWidth={0.9} />
+                            <text x={(x1 + x2) / 2} y={oy - 10} fontSize={9.5} textAnchor="middle" fill={C.orange} fontWeight="bold">{(o.lx2 - o.lx1).toFixed(2)}</text>
+                            <text x={(x1 + x2) / 2} y={oy + (o.height * sc) / 2} fontSize={8.5} textAnchor="middle" fill={C.gray}>h {o.height.toFixed(2)}</text>
+                            {o.sill > 0.05 && <text x={(x1 + x2) / 2} y={ph - (o.sill * sc) / 2 + 3} fontSize={8} textAnchor="middle" fill={C.gray}>antep. {o.sill.toFixed(2)}</text>}
+                          </g>
+                        );
+                      })}
+                    </g>
                   </svg>
                 </div>
                 <div style={{ minWidth: 240 }}>
