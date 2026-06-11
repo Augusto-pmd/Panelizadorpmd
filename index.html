@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1E2A38" />
+    <title>Panelizador Steel Framing — PMD Arquitectura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: "#16202B",
+              chrome: "#1E2A38",
+              chrome2: "#27384A",
+              blue: "#2F6FE0",
+              blueDark: "#1F56B8",
+              blueSoft: "#E8F0FD",
+              paper: "#F4F5F7",
+              line: "#E4E7EC",
+              muted: "#6B7785",
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
+            },
+            boxShadow: {
+              soft: "0 1px 2px rgba(16,32,43,0.04), 0 2px 8px rgba(16,32,43,0.06)",
+              pop: "0 8px 28px rgba(16,32,43,0.16)",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #16202b;
+        --chrome: #1e2a38;
+        --blue: #2f6fe0;
+        --line: #e4e7ec;
+        --muted: #6b7785;
+        --paper: #f4f5f7;
+      }
+
+      * { -webkit-tap-highlight-color: transparent; }
+
+      html, body, #root { height: 100%; }
+      body {
+        margin: 0;
+        font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* Controles base modernos: inputs, selects, textarea */
+      input, select, textarea, button { font-family: inherit; }
+      input[type="text"], input[type="number"], input[type="search"], select, textarea {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink);
+        outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      }
+      input[type="text"]:focus, input[type="number"]:focus, input[type="search"]:focus,
+      select:focus, textarea:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(47, 111, 224, 0.16);
+      }
+      input::placeholder, textarea::placeholder { color: #9aa4b1; }
+
+      /* Checkboxes y sliders con el acento de marca */
+      input[type="checkbox"], input[type="radio"] { accent-color: var(--blue); width: 16px; height: 16px; cursor: pointer; }
+      input[type="range"] { accent-color: var(--blue); cursor: pointer; height: 4px; }
+
+      button { transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .06s ease; }
+      button:active { transform: translateY(0.5px); }
+
+      /* Animación de entrada para vistas */
+      @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      .fade-in { animation: fadeUp .22s ease both; }
+      @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+      .pop-in { animation: pop .14s ease both; }
+
+      /* Scrollbar fino y discreto */
+      * { scrollbar-width: thin; scrollbar-color: #c3c9d2 transparent; }
+      *::-webkit-scrollbar { width: 10px; height: 10px; }
+      *::-webkit-scrollbar-thumb { background: #c3c9d2; border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
+      *::-webkit-scrollbar-thumb:hover { background: #aab2bd; background-clip: content-box; }
+      *::-webkit-scrollbar-track { background: transparent; }
+
+      /* Tooltip simple por atributo data-tip */
+      [data-tip] { position: relative; }
+      [data-tip]:hover::after {
+        content: attr(data-tip);
+        position: absolute; left: 50%; bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        background: var(--ink); color: #fff;
+        font-size: 11px; line-height: 1; white-space: nowrap;
+        padding: 6px 8px; border-radius: 7px;
+        box-shadow: 0 6px 18px rgba(16,32,43,.22);
+        pointer-events: none; z-index: 60; opacity: .98;
+      }
+      [data-tip]:hover::before {
+        content: ""; position: absolute; left: 50%; bottom: calc(100% + 3px);
+        transform: translateX(-50%);
+        border: 5px solid transparent; border-top-color: var(--ink);
+        pointer-events: none; z-index: 60;
+      }
+      @media (hover: none) { [data-tip]:hover::after, [data-tip]:hover::before { display: none; } }
+
+      details > summary { list-style: none; }
+      details > summary::-webkit-details-marker { display: none; }
+
+      /* Impresión: solo el contenido (fichas), sin la barra de la app */
+      @media print {
+        .no-print { display: none !important; }
+        body { background: #fff; }
+        .fade-in, .pop-in { animation: none !important; }
+        * { box-shadow: none !important; }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-BGcNhj7h.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
