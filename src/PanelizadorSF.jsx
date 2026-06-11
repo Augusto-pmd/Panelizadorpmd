@@ -1600,6 +1600,18 @@ export default function PanelizadorSF() {
                   ))}
                   <Btn variant="danger" size="sm" onClick={() => { setOpenings((os) => os.filter((x) => x.id !== o.id)); setSelVano(null); }}>🗑 Borrar vano</Btn>
                 </div>
+                {(() => {
+                  const luz = o.width;
+                  const rec = luz <= 1.2 ? "2× PGC 100×1,2" : luz <= 2.0 ? "2× PGC 140×1,24" : luz <= 3.0 ? "2× PGC 200×2,0" : "verificar con cálculo";
+                  const warn = luz > 3.0;
+                  return (
+                    <div className="mt-2 px-2.5 py-1.5 rounded-lg text-xs flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ background: warn ? `${C.red}10` : C.blueSoft, color: warn ? C.red : C.blueDark }}>
+                      <span className="font-bold">Dintel sugerido (luz {luz.toFixed(2)} m):</span>
+                      <span className="font-mono">{rec} en caja · apoyo 0,10 m/lado</span>
+                      <span style={{ color: C.gray }}>· orientativo, verificar con cálculo estructural</span>
+                    </div>
+                  );
+                })()}
                 <div className="text-[11px] mt-2" style={{ color: C.gray }}>En modo Editar también podés arrastrar el vano por el muro. Tocá otro vano para editarlo.</div>
               </Card>
             );
