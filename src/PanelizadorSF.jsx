@@ -1375,6 +1375,8 @@ export default function PanelizadorSF() {
                   const capas = [];
                   let x = 0;
                   const add = (w, fill, txt, stroke = C.ink) => { capas.push({ x, w, fill, txt, stroke }); x += w; };
+                  if (cfg.eps) add(16, "#FCE7C8", "EPS", "#C9922B");
+                  if (cfg.tyvek) add(4, "#EAF2FB", "Tyvek", C.blue);
                   add(10, "#F0DCAE", "OSB", C.osb);
                   if (extDoble) add(10, "#E7CE96", "OSB", C.osb);
                   add(96, "#EEF2F7", "Montante " + mont.replace("PGC ", "") + " + lana", C.gray);
@@ -1431,6 +1433,16 @@ export default function PanelizadorSF() {
                       <input type="checkbox" checked={cfg.portante ?? vincha} onChange={(e) => updateWallCfg(w2.id, { portante: e.target.checked })} />
                       Portante (viga tubo + murito)
                     </label>
+                  </Field>
+                  <Field label="Exterior">
+                    <div className="flex gap-1.5">
+                      {[["eps", "EPS"], ["tyvek", "Tyvek"]].map(([k, lbl]) => (
+                        <label key={k} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ background: cfg[k] ? C.greenSoft || "#E7F5EC" : C.paper, color: cfg[k] ? C.green : C.gray, border: `1px solid ${cfg[k] ? "transparent" : C.line}` }}>
+                          <input type="checkbox" checked={!!cfg[k]} onChange={(e) => updateWallCfg(w2.id, { [k]: e.target.checked })} />
+                          {lbl}
+                        </label>
+                      ))}
+                    </div>
                   </Field>
                   {Object.keys(cfg).length > 0 && (
                     <Btn variant="ghost" size="sm" onClick={() => updateWallCfg(w2.id, { perfilMontante: undefined, perfilSolera: undefined, studSpacing: undefined, placa: undefined })}>↺ Volver a global</Btn>
@@ -2367,6 +2379,16 @@ export default function PanelizadorSF() {
               <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>Muros: {result.lanaWallM2.toFixed(0)} m² · Techo: {result.lanaRoofM2.toFixed(0)} m²</div>
               <div className="text-[11px] mt-0.5" style={{ color: C.gray }}>Rollo 1,20 × 18,00 m · +5% desperdicio</div>
             </Card>
+            {(result.epsM2 > 0 || result.tyvekM2 > 0) && (
+              <Card className="p-3.5" style={{ borderTop: `3px solid #C9922B` }}>
+                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: "#C9922B" }}>Aislación exterior</div>
+                <div className="text-xs font-mono mt-1.5 flex flex-col gap-0.5" style={{ color: C.ink }}>
+                  {result.epsM2 > 0 && <span>🟧 EPS: {result.epsM2.toFixed(1)} m²</span>}
+                  {result.tyvekM2 > 0 && <span>🟦 Tyvek (membrana): {result.tyvekM2.toFixed(1)} m²</span>}
+                </div>
+                <div className="text-[11px] mt-1" style={{ color: C.gray }}>Por muro (tipología). + solapes/desperdicio en obra.</div>
+              </Card>
+            )}
             <Card className="p-3.5" style={{ borderTop: `3px solid ${C.elec}` }}>
               <div className="text-xs font-bold uppercase tracking-wide" style={{ color: C.elec }}>Instalaciones (previsión)</div>
               <div className="text-xs font-mono mt-1.5 flex flex-col gap-0.5" style={{ color: C.ink }}>

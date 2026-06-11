@@ -122,6 +122,15 @@ export function buildAll(
   const rollArea = R.lanaRollW * R.lanaRollL;
   const lanaRolls = lanaWallM2 + lanaRoofM2 > 0 ? Math.ceil((lanaWallM2 + lanaRoofM2) * (1 + R.lanaWaste) / rollArea) : 0;
 
+  // ---- membranas/aislación exterior por muro: EPS y Tyvek (cfg del muro)
+  let epsM2 = 0, tyvekM2 = 0;
+  for (const w of walls) {
+    const cfg = (w as any).cfg || {};
+    const area = (dist(w.a, w.b) / ppm) * R.panelHeight;
+    if (cfg.eps) epsM2 += area;
+    if (cfg.tyvek) tyvekM2 += area;
+  }
+
   // ---- previsión de instalaciones (estimado para compra)
   const elecPts = fixtures.filter((f) => FIXTYPES[f.type] && FIXTYPES[f.type].kind === "elec");
   const aguaPts = fixtures.filter((f) => f.type === "agua");
@@ -208,5 +217,5 @@ export function buildAll(
     flejeAncho: R.flejeAncho,
   };
 
-  return { panels, cutList, packing, perfiles: { montante: R.perfilMontante, solera: R.perfilSolera }, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, instal, fijaciones, arriostre };
+  return { panels, cutList, packing, perfiles: { montante: R.perfilMontante, solera: R.perfilSolera }, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, epsM2, tyvekM2, instal, fijaciones, arriostre };
 }
