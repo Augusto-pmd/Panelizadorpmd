@@ -1315,7 +1315,7 @@ export default function PanelizadorSF() {
         </header>
 
         <nav
-          className="px-3 py-2 flex gap-1.5 overflow-x-auto"
+          className="tabnav px-3 py-2 flex gap-1.5 overflow-x-auto"
           style={{ background: "rgba(244,245,247,.88)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderBottom: `1px solid ${C.line}` }}
         >
           {[
@@ -2301,6 +2301,19 @@ export default function PanelizadorSF() {
       {/* ================= TAB PANELES ================= */}
       {tab === "paneles" && (
         <div className="p-3 md:p-4 flex flex-col gap-3 fade-in w-full mx-auto" style={{ maxWidth: 1400 }}>
+          {/* membrete PMD: sólo al imprimir / exportar PDF */}
+          <div className="print-only" style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 8, marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontWeight: 800, fontSize: 18, color: C.ink }}>PMD ARQUITECTURA</span>
+              <span style={{ fontSize: 13, color: C.gray }}>Panelización Steel Framing · Fichas de fábrica</span>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: C.gray }}>{projName || "Proyecto"} · {result.panels.length} paneles</span>
+            </div>
+          </div>
+          {result.panels.length + result.roofInfo.length > 0 && (
+            <div className="no-print flex items-center justify-end gap-2">
+              <Btn variant="dark" size="sm" onClick={() => window.print()}>🖨 Imprimir / PDF</Btn>
+            </div>
+          )}
           {result.panels.length === 0 && result.roofInfo.length === 0 && (
             <EmptyState icon="🧱" title="Todavía no hay paneles" hint='Trazá muros y techos en la pestaña Plano (o cargá un ejemplo) y acá aparecen las fichas de fábrica.'
               action={<Btn variant="success" onClick={() => { loadExample(); setTab("plano"); }}>✨ Cargar ejemplo</Btn>} />

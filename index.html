@@ -145,11 +145,14 @@
       :focus-visible { outline: none; }
 
       /* Impresión: solo el contenido (fichas), sin la barra de la app */
+      .print-only { display: none; }
       @media print {
-        .no-print { display: none !important; }
+        .no-print, header, .tabnav { display: none !important; }
+        .print-only { display: block !important; }
         body { background: #fff; }
         .fade-in, .pop-in { animation: none !important; }
         * { box-shadow: none !important; }
+        @page { margin: 12mm; }
       }
     </style>
   </head>
