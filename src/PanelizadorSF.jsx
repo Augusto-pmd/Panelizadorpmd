@@ -39,6 +39,7 @@ export default function PanelizadorSF() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [exactLen, setExactLen] = useState("");
+  const [typedLen, setTypedLen] = useState(""); // medida tipeada mientras se dibuja (estilo Revit)
   const [editWall, setEditWall] = useState(null); // { id, value } — cota editable en el canvas
   const [showHelp, setShowHelp] = useState(false); // panel de atajos y ayuda
   const [autoRoof, setAutoRoof] = useState({ tipo: "2aguas-h", pendiente: 30, alero: 0.3 });
@@ -118,7 +119,13 @@ export default function PanelizadorSF() {
     if (mod && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
     if (typing) return;
-    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setPendingRect(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); setSelRoof(null); return; }
+    if (e.key === "Escape") { setPending(null); setPendingRoof(null); setPendingRect(null); setEditWall(null); setShowHelp(false); setSelVano(null); setSelWall(null); setSelRoof(null); setTypedLen(""); return; }
+    // Revit-like: tipear la medida mientras se dibuja el muro → Enter lo coloca a esa distancia en la dirección del cursor
+    if (mode === "muro" && pending) {
+      if (/^[0-9]$/.test(e.key) || e.key === "." || e.key === ",") { e.preventDefault(); setTypedLen((s) => (s + (e.key === "," ? "." : e.key)).slice(0, 7)); return; }
+      if (e.key === "Backspace") { e.preventDefault(); setTypedLen((s) => s.slice(0, -1)); return; }
+      if (e.key === "Enter" && typedLen) { e.preventDefault(); commitTypedLen(); return; }
+    }
     if (tab !== "plano") return;
     const toolKeys = { m: "muro", r: "rect", v: "vano", t: "techo", i: "instal", e: "editar", g: "goma", h: "mover", c: "calibrar" };
     const k = e.key.toLowerCase();
@@ -903,6 +910,19 @@ export default function PanelizadorSF() {
       g.multi = false; g.lastDist = 0; g.lastMid = null;
       dragRef.current = null; g.rectDown = null;
     }
+  }
+
+  // ---- Revit-like: coloca el muro a la medida tipeada, en la dirección del cursor (ortho-snap)
+  function commitTypedLen() {
+    const m = parseFloat(String(typedLen).replace(",", "."));
+    if (!pending || !(m > 0)) { setTypedLen(""); return; }
+    const h = hover || { x: pending.x + ppm, y: pending.y }; // sin cursor: horizontal por defecto
+    let dx = h.x - pending.x, dy = h.y - pending.y;
+    const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+    let b = { x: pending.x + dx * m * ppm, y: pending.y + dy * m * ppm };
+    for (const w of walls) for (const ep of [w.a, w.b]) if (dist(b, ep) < SNAP_PX) b = { ...ep };
+    setWalls((ws) => [...ws, { id: idRef.current++, a: pending, b }]);
+    setPending(b); setHover(null); setTypedLen("");
   }
 
   // ---- muro de largo exacto desde el punto pendiente
@@ -1692,7 +1712,7 @@ export default function PanelizadorSF() {
             <span className="text-sm leading-none mt-0.5">💡</span>
             <div className="flex flex-col gap-0.5">
               <span style={{ color: C.blueDark, fontWeight: 600 }}>
-                {mode === "muro" && (pending ? "Tocá el próximo punto (los muros se encadenan) o tipeá el largo exacto y elegí dirección. Tocá el punto azul o \"Terminar tramo\" para cortar la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
+                {mode === "muro" && (pending ? "Movés el cursor en la dirección y TIPEÁS el largo (ej. 4.5) + Enter → el muro sale a esa distancia exacta. O tocá el próximo punto (se encadenan). Punto azul o «Terminar tramo» corta la cadena." : "Tocá el punto inicial. Snap ortogonal, a grilla de 5 cm y a extremos existentes. Con dos dedos movés y hacés zoom.")}
                 {mode === "rect" && (pendingRect ? "Tocá la esquina opuesta: se crean los 4 muros del ambiente de una vez. Snap ortogonal y a grilla." : "Tocá una esquina del ambiente y arrastrá/tocá la opuesta: dibuja los 4 muros juntos. Ideal para empezar rápido.")}
                 {mode === "mover" && "Arrastrá con un dedo para mover el plano. Pellizcá para hacer zoom. ⌖ vuelve a centrar."}
                 {mode === "vano" && "Tocá sobre un muro para insertar un vano. Después editá medidas en la lista de abajo."}
@@ -1914,15 +1934,25 @@ export default function PanelizadorSF() {
               <rect key={`c${i}`} x={c.x - 6 / zoom} y={c.y - 6 / zoom} width={12 / zoom} height={12 / zoom} fill="none" stroke={C.blue} strokeWidth={2 / zoom} />
             ))}
 
-            {/* muro en curso */}
-            {mode === "muro" && pending && hover && (
-              <g>
-                <line x1={pending.x} y1={pending.y} x2={hover.x} y2={hover.y} stroke={C.blue} strokeWidth={4 / zoom} strokeDasharray={`${8 / zoom} ${6 / zoom}`} />
-                <text x={(pending.x + hover.x) / 2} y={(pending.y + hover.y) / 2 - 10 / zoom} fontSize={13 / zoom} textAnchor="middle" fill={C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
-                  {(dist(pending, hover) / ppm).toFixed(2)} m
-                </text>
-              </g>
-            )}
+            {/* muro en curso: cota viva (largo tipeado o del cursor) + ángulo, estilo Revit */}
+            {mode === "muro" && pending && hover && (() => {
+              const mx = (pending.x + hover.x) / 2, my = (pending.y + hover.y) / 2;
+              const liveLen = dist(pending, hover) / ppm;
+              const ang = ((Math.atan2(-(hover.y - pending.y), hover.x - pending.x) * 180 / Math.PI) + 360) % 360;
+              const txt = typedLen ? `${typedLen} m` : `${liveLen.toFixed(2)} m`;
+              return (
+                <g>
+                  <line x1={pending.x} y1={pending.y} x2={hover.x} y2={hover.y} stroke={C.blue} strokeWidth={4 / zoom} strokeDasharray={`${8 / zoom} ${6 / zoom}`} />
+                  <g transform={`translate(${mx},${my - 14 / zoom})`}>
+                    <rect x={-44 / zoom} y={-12 / zoom} width={88 / zoom} height={(typedLen ? 18 : 16) / zoom} rx={4 / zoom} fill={typedLen ? C.blue : "#FCFBF8"} opacity={typedLen ? 1 : 0.92} stroke={typedLen ? "transparent" : C.blue} strokeWidth={1 / zoom} />
+                    <text x={0} y={2 / zoom} fontSize={(typedLen ? 13 : 12) / zoom} textAnchor="middle" fill={typedLen ? "#fff" : C.blue} fontFamily="ui-monospace, monospace" fontWeight="bold">
+                      {txt}{typedLen ? " ⏎" : ""}
+                    </text>
+                  </g>
+                  <text x={mx} y={my + 16 / zoom} fontSize={10 / zoom} textAnchor="middle" fill={C.gray} fontFamily="ui-monospace, monospace">{ang.toFixed(0)}°</text>
+                </g>
+              );
+            })()}
             {mode === "muro" && pending && <circle cx={pending.x} cy={pending.y} r={5 / zoom} fill={C.blue} />}
 
             {/* habitación (rectángulo) en curso */}
