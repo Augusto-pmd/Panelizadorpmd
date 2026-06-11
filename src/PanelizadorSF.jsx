@@ -1100,9 +1100,10 @@ export default function PanelizadorSF() {
       { id: id++, wallId: ws[4].id, type: "puerta", offset: 3.0, width: 0.8, height: 2.05, sill: 0 },
       { id: id++, wallId: ws[1].id, type: "ventana", offset: 3.5, width: 2.0, height: 1.5, sill: 0.9 },
     ];
+    // techo a 2 aguas: cumbrera horizontal al centro (y = oy + 3.5s), ambas faldas suben a la cumbrera
     const rf = [
-      { id: id++, x: ox - 0.3 * s, y: oy - 0.3 * s, w: 9.6 * s, h: 5.3 * s, slope: 30, dir: "y" },
-      { id: id++, x: ox - 0.3 * s, y: oy + 4.6 * s, w: 9.6 * s, h: 2.7 * s, slope: 18, dir: "y" },
+      { id: id++, x: ox - 0.3 * s, y: oy - 0.3 * s, w: 9.6 * s, h: 3.8 * s, slope: 30, dir: "y", rise: 1 },
+      { id: id++, x: ox - 0.3 * s, y: oy + 3.5 * s, w: 9.6 * s, h: 3.8 * s, slope: 30, dir: "y", rise: -1 },
     ];
     const fx = [
       { id: id++, wallId: ws[0].id, type: "toma", offset: 1.0, height: 0.3 },
