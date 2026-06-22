@@ -2766,14 +2766,16 @@ Reglas: coordenadas en METROS con 2 decimales, origen (0,0) arriba-izquierda de 
               <div className="text-xs font-mono mt-1" style={{ color: C.ink }}>Muros: {result.lanaWallM2.toFixed(0)} m² · Techo: {result.lanaRoofM2.toFixed(0)} m²</div>
               <div className="text-[11px] mt-0.5" style={{ color: C.gray }}>Rollo 1,20 × 18,00 m · +5% desperdicio</div>
             </Card>
-            {(result.epsM2 > 0 || result.tyvekM2 > 0) && (
+            {(result.placas.epsPlacas > 0 || result.placas.tyvekRollos > 0 || result.placas.rocaPlacas > 0) && (
               <Card className="p-3.5" style={{ borderTop: `3px solid #C9922B` }}>
-                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: "#C9922B" }}>Aislación exterior</div>
+                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: "#C9922B" }}>Placas y membranas</div>
                 <div className="text-xs font-mono mt-1.5 flex flex-col gap-0.5" style={{ color: C.ink }}>
-                  {result.epsM2 > 0 && <span>🟧 EPS: {result.epsM2.toFixed(1)} m²</span>}
-                  {result.tyvekM2 > 0 && <span>🟦 Tyvek (membrana): {result.tyvekM2.toFixed(1)} m²</span>}
+                  {result.placas.epsPlacas > 0 && <span>🟧 EPS: {result.placas.epsPlacas} placas (1,00×0,50) · {result.placas.epsM2.toFixed(1)} m²</span>}
+                  {result.placas.tyvekRollos > 0 && <span>🟦 Tyvek: {result.placas.tyvekRollos} rollo{result.placas.tyvekRollos > 1 ? "s" : ""} (1,50×50) · {result.placas.tyvekM2.toFixed(1)} m²</span>}
+                  {result.placas.rocaPlacas > 0 && <span>⬜ Roca de yeso: {result.placas.rocaPlacas} placas (1,20×2,40) · {result.placas.rocaM2.toFixed(1)} m²</span>}
+                  {result.placas.tornillosRoca > 0 && <span>🔩 ~{result.placas.tornillosRoca} tornillos Nº6 (roca @300)</span>}
                 </div>
-                <div className="text-[11px] mt-1" style={{ color: C.gray }}>Por muro (tipología). + solapes/desperdicio en obra.</div>
+                <div className="text-[11px] mt-1" style={{ color: C.gray }}>Por muro (tipología) · +10% desperdicio.</div>
               </Card>
             )}
             <Card className="p-3.5" style={{ borderTop: `3px solid ${C.elec}` }}>

@@ -152,14 +152,23 @@ export function buildAll(
   const rollArea = R.lanaRollW * R.lanaRollL;
   const lanaRolls = lanaWallM2 + lanaRoofM2 > 0 ? Math.ceil((lanaWallM2 + lanaRoofM2) * (1 + R.lanaWaste) / rollArea) : 0;
 
-  // ---- membranas/aislación exterior por muro: EPS y Tyvek (cfg del muro)
-  let epsM2 = 0, tyvekM2 = 0;
+  // ---- membranas/aislación/placas por muro (cfg del muro) → unidades de compra
+  let epsM2 = 0, tyvekM2 = 0, rocaM2 = 0;
   for (const w of walls) {
     const cfg = (w as any).cfg || {};
     const area = (dist(w.a, w.b) / ppm) * R.panelHeight;
     if (cfg.eps) epsM2 += area;
     if (cfg.tyvek) tyvekM2 += area;
+    if (/roca/i.test(cfg.placa || "")) rocaM2 += area; // cara interior de roca de yeso
   }
+  const epsPlacas = epsM2 > 0 ? Math.ceil(epsM2 * (1 + R.placaWaste) / R.epsPlacaM2) : 0;
+  const tyvekRollos = tyvekM2 > 0 ? Math.ceil(tyvekM2 * (1 + R.placaWaste) / R.tyvekRolloM2) : 0;
+  const rocaPlacas = rocaM2 > 0 ? Math.ceil(rocaM2 * (1 + R.placaWaste) / R.rocaPlacaM2) : 0;
+  const placas = {
+    epsM2, epsPlacas, tyvekM2, tyvekRollos, rocaM2, rocaPlacas,
+    osbSheets: osbWallSheets + osbRoofSheets,
+    tornillosRoca: rocaM2 > 0 ? Math.ceil(rocaM2 / (R.studSpacing * R.tornilloRocaPaso)) : 0,
+  };
 
   // ---- previsión de instalaciones (estimado para compra)
   const elecPts = fixtures.filter((f) => FIXTYPES[f.type] && FIXTYPES[f.type].kind === "elec");
@@ -247,5 +256,5 @@ export function buildAll(
     flejeAncho: R.flejeAncho,
   };
 
-  return { panels, cutList, packing, perfiles: { montante: R.perfilMontante, solera: R.perfilSolera }, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, epsM2, tyvekM2, instal, fijaciones, arriostre };
+  return { panels, cutList, packing, perfiles: { montante: R.perfilMontante, solera: R.perfilSolera }, tuboML, joints, roofInfo, chapas, osbWallSheets, osbRoofSheets, osbPlan, wallArea, openArea, osbRoofArea, lanaWallM2, lanaRoofM2, lanaRolls, epsM2, tyvekM2, placas, instal, fijaciones, arriostre };
 }

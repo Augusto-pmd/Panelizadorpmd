@@ -50,6 +50,12 @@ export const RULES = {
   tornilloOsbBorde: 0.15, // paso de tornillos en bordes de OSB (m)
   tornilloOsbCampo: 0.30, // paso de tornillos en el campo (m)
   anclajePaso: 1.35,      // separación de anclajes a platea (m)
+  // tamaños de compra para el despiece de placas/membranas
+  epsPlacaM2: 0.5,        // placa de EPS 1,00×0,50 m
+  tyvekRolloM2: 75,       // rollo Tyvek 1,50×50 m
+  rocaPlacaM2: 2.88,      // placa de roca 1,20×2,40 m
+  placaWaste: 0.1,        // 10% desperdicio en placas/membranas
+  tornilloRocaPaso: 0.30, // paso de tornillos de roca/yeso Nº6 (m)
   osbW: 1.22,
   osbH: 2.44,
   osbWaste: 0.1,          // 10% desperdicio
